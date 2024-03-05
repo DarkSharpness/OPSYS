@@ -4,7 +4,7 @@ test:
 	-machine virt \
 	-nographic \
 	-bios default \
-	-device loader,file=target/riscv64gc-unknown-none-elf/release/os,addr=0x80200000 \
+	-kernel target/riscv64gc-unknown-none-elf/release/os \
 	-s -S
 
 gdb:
