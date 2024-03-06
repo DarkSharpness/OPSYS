@@ -3,20 +3,20 @@
 #![feature(panic_info_message)]
 
 mod lang_items;
-mod sbi;
 mod console;
+mod sbi;
 
 use core::{arch::global_asm, mem::size_of};
 
 global_asm!(include_str!("entry.asm"));
 
 #[no_mangle]
-pub fn main() -> ! {
-    use crate::sbi::putchar;
+pub fn os_main() {
+    use crate::sbi::func::putchar;
     clear_bss();
     putchar('h' as usize);
     // println!("Hello, world!");
-    sbi::shutdown(false);
+    sbi::func::shutdown(false);
 }
 
 fn clear_bss() {

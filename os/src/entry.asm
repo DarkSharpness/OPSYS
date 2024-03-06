@@ -1,8 +1,8 @@
     .section .text.entry
-    .globl _start
-_start:
+    .globl os_start
+os_start:
     la sp, boot_stack_top
-    call main
+    call os_main
 
     .section .bss.stack
     .globl boot_stack_low

@@ -1,6 +1,6 @@
 OUTPUT_ARCH(riscv)
-ENTRY(os_start)
-BASE_ADDRESS = 0x80200000;
+ENTRY(bios_start)
+BASE_ADDRESS = 0x80000000;
 
 SECTIONS
 {
@@ -9,7 +9,7 @@ SECTIONS
 
     stext = .;
     .text : {
-        *(.text.entry)
+        *(.text.bios)
         *(.text .text.*)
     }
 
