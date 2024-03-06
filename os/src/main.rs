@@ -11,9 +11,11 @@ use core::{arch::global_asm, mem::size_of};
 global_asm!(include_str!("entry.asm"));
 
 #[no_mangle]
-pub fn rust_main() -> ! {
+pub fn main() -> ! {
+    use crate::sbi::putchar;
     clear_bss();
-    println!("Hello, world!");
+    putchar('h' as usize);
+    // println!("Hello, world!");
     sbi::shutdown(false);
 }
 

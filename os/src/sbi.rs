@@ -12,6 +12,7 @@ pub fn sbi_call(eid : usize, arg0: usize) -> usize {
     error
 }
 
+#[no_mangle]
 pub fn putchar(c : usize) {
     // #[allow(deprecated)]
     // sbi_rt::legacy::console_putchar(c);
