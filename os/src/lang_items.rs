@@ -1,5 +1,4 @@
-use crate::sbi::func::shutdown;
-use crate::uart_println as println;
+use crate::{driver::uart, uart_println as println};
 use core::panic::PanicInfo;
 
 #[panic_handler]
@@ -14,5 +13,6 @@ fn panic(info: &PanicInfo) -> ! {
     } else {
         println!("Panicked: {}", info.message().unwrap());
     }
-    shutdown(true)
+    unsafe { uart::shutdown() };
+    loop {}
 }

@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![deprecated]
 
 pub fn sbi_call(eid : usize, arg0: usize) -> usize {
     let error;

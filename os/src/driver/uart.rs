@@ -66,16 +66,22 @@ pub unsafe fn init() {
     IER.write_volatile(ier::RX_ENABLE | ier::TX_ENABLE);
 }
 
+#[no_mangle]
+#[inline(never)]
 pub unsafe fn putc(c : u8) {
     while (LSR.read_volatile() & lsr::TX_IDLE) == 0 {}
     THR.write_volatile(c);
 }
 
+#[no_mangle]
+#[inline(never)]
 pub unsafe fn getc() -> i32 {
     while (LSR.read_volatile() & lsr::RX_DONE) == 0 {}
     RBR.read_volatile() as i32
 }
 
+#[no_mangle]
+#[inline(never)]
 pub unsafe fn shutdown() {
     let pos = 0x100000 as * mut u32;
     pos.write_volatile(0x5555);
