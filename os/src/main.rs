@@ -5,6 +5,7 @@
 mod lang_items;
 mod console;
 mod sbi;
+mod driver;
 
 use core::{arch::global_asm, mem::size_of};
 
@@ -12,11 +13,12 @@ global_asm!(include_str!("entry.asm"));
 
 #[no_mangle]
 pub fn os_main() {
-    use crate::sbi::func::putchar;
     clear_bss();
-    putchar('h' as usize);
-    // println!("Hello, world!");
-    sbi::func::shutdown(false);
+    unsafe {
+        driver::uart::init();
+        uart_println!("Hello, world!");
+        driver::uart::shutdown();
+    }
 }
 
 fn clear_bss() {

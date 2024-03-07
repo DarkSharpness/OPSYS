@@ -1,5 +1,5 @@
 use crate::sbi::func::shutdown;
-use crate::println;
+use crate::uart_println as println;
 use core::panic::PanicInfo;
 
 #[panic_handler]
