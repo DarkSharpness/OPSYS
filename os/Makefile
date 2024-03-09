@@ -27,3 +27,6 @@ gdb:
 	-ex 'file $(OS_PATH)' \
 	-ex 'set arch riscv:rv64' \
 	-ex 'target remote localhost:1234'
+
+asm:
+	rust-objdump -S target/riscv64gc-unknown-none-elf/debug/os > os.tmp 2>/dev/null
