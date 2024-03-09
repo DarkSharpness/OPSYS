@@ -10,6 +10,17 @@ SECTIONS
     stext = .;
     .text : {
         *(.text.entry)
+    }
+
+    . = ALIGN(4K);
+    traptext = .;
+    .text : {
+        *(.text.trap)
+    }
+
+    . = ALIGN(4K);
+    text = .;
+    .text : {
         *(.text .text.*)
     }
 

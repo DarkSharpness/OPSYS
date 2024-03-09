@@ -2,7 +2,7 @@
     .globl os_start
 os_start:
     la sp, boot_stack_top
-    call os_main
+    j os_main
 
     .section .bss.stack
     .globl boot_stack_low

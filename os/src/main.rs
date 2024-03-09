@@ -7,11 +7,12 @@ mod console;
 mod sbi;
 mod driver;
 
-use core::{arch::global_asm, mem::size_of};
+use core::{arch::{self, global_asm}, mem::size_of};
 
 use crate::driver::uart;
 
 global_asm!(include_str!("entry.asm"));
+global_asm!(include_str!("trap.asm"));
 
 #[no_mangle]
 fn os_main() {
@@ -21,6 +22,11 @@ fn os_main() {
         uart_println!("Hello, world!");
         play();
         uart::shutdown();
+
+        // To prevent the linker from removing dead code
+        arch::asm!(
+            "la zero, trampoline",
+            "la zero, return_usr");
     }
 }
 
