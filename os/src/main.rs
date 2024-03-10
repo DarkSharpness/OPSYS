@@ -9,10 +9,12 @@ mod sbi;
 mod driver;
 mod trap;
 mod play;
+mod layout;
+mod riscv;
 
 use core::{arch::global_asm, mem::size_of};
 
-use crate::driver::uart;
+use crate::driver::{start, uart};
 
 global_asm!(include_str!("entry.asm"));
 global_asm!(include_str!("trap.asm"));
@@ -20,8 +22,12 @@ global_asm!(include_str!("trap.asm"));
 #[no_mangle]
 unsafe fn os_main() {
     clear_bss();
+
     uart::init();
-    uart_println!("Hello, world!");
+
+    start::drop_mode();
+    uart_println!("Kernel is running on supervisor mode......");
+
     // play::play();
     uart::shutdown();
     trap::user_trap();
