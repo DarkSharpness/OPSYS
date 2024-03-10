@@ -16,7 +16,6 @@ use core::{arch::global_asm, mem::size_of};
 use crate::driver::{start, uart};
 
 global_asm!(include_str!("entry.asm"));
-global_asm!(include_str!("trap.asm"));
 
 #[no_mangle]
 unsafe fn os_main() {
