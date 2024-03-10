@@ -1,13 +1,16 @@
 #![no_std]
 #![no_main]
 #![feature(panic_info_message)]
+#![allow(dead_code)]
 
 mod lang_items;
 mod console;
 mod sbi;
 mod driver;
+mod trap;
+mod play;
 
-use core::{arch::{self, global_asm}, mem::size_of};
+use core::{arch::global_asm, mem::size_of};
 
 use crate::driver::uart;
 
@@ -15,19 +18,13 @@ global_asm!(include_str!("entry.asm"));
 global_asm!(include_str!("trap.asm"));
 
 #[no_mangle]
-fn os_main() {
+unsafe fn os_main() {
     clear_bss();
-    unsafe {
-        uart::init();
-        uart_println!("Hello, world!");
-        play();
-        uart::shutdown();
-
-        // To prevent the linker from removing dead code
-        arch::asm!(
-            "la zero, trampoline",
-            "la zero, return_usr");
-    }
+    uart::init();
+    uart_println!("Hello, world!");
+    // play::play();
+    uart::shutdown();
+    trap::user_trap();
 }
 
 fn clear_bss() {
@@ -41,20 +38,4 @@ fn clear_bss() {
         unsafe { (beg as *mut u64).write_volatile(0) }
         beg += size_of::<u64>() as u64;
     }
-}
-
-#[inline(always)]
-fn is_digit(c: i32) -> bool { c >= 48 && c <= 57 }
-
-#[inline(never)]
-unsafe fn play() {
-    let mut val : u64 = 0;
-    loop {
-        let _c = uart::getc();
-        uart::putc(_c as u8);
-        if !is_digit(_c) { break; }
-        val = val * 10 + (_c - 48) as u64;
-    }
-    driver::uart::putc('\n' as u8);
-    uart_println!("You have entered: {}", val);
 }

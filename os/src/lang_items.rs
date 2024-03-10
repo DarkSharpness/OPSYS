@@ -2,6 +2,7 @@ use crate::{driver::uart, uart_println as println};
 use core::panic::PanicInfo;
 
 #[panic_handler]
+#[inline(never)]
 fn panic(info: &PanicInfo) -> ! {
     if let Some(location) = info.location() {
         println!(

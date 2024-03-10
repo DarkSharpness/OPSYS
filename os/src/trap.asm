@@ -1,6 +1,6 @@
     .section .text.trap
-    .globl trampoline
-trampoline:
+    .globl user_handle
+user_handle:
     # Change to trap frame
     csrw sscratch, sp
     li sp, 0x80000000
@@ -30,8 +30,8 @@ trampoline:
     sd s7, 168(sp)
     sd s8, 176(sp)
     sd s9, 184(sp)
-    sd s10, 192(sp)
-    sd s11, 200(sp)
+    sd s10,192(sp)
+    sd s11,200(sp)
     sd t3, 208(sp)
     sd t4, 216(sp)
     sd t5, 224(sp)
@@ -47,12 +47,12 @@ trampoline:
     sfence.vma zero, zero
 
     # Jump to the real handler
-    jr t0
+    j user_handle
 
-trampoline.end:
+user_handle.end:
 
-    .globl return_usr
-return_usr:
+    .globl user_return
+user_return:
     # Wait old memory operation to finish
     # Then, enable page table. User has its own page table.
     sfence.vma zero, zero
@@ -86,8 +86,8 @@ return_usr:
     ld s7, 168(sp)
     ld s8, 176(sp)
     ld s9, 184(sp)
-    ld s10, 192(sp)
-    ld s11, 200(sp)
+    ld s10,192(sp)
+    ld s11,200(sp)
     ld t3, 208(sp)
     ld t4, 216(sp)
     ld t5, 224(sp)
@@ -98,4 +98,4 @@ return_usr:
 
     # Return to user mode
     sret
-return_usr.end:
+user_return.end:
