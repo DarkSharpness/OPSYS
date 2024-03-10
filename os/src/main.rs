@@ -10,7 +10,6 @@ mod driver;
 mod trap;
 mod play;
 mod layout;
-mod riscv;
 
 use core::{arch::global_asm, mem::size_of};
 
@@ -24,15 +23,15 @@ unsafe fn os_main() {
     clear_bss();
 
     uart::init();
-
-    start::drop_mode();
-    uart_println!("Kernel is running on supervisor mode......");
+    start::init();
 
     // play::play();
     uart::shutdown();
     trap::user_trap();
 }
 
+#[no_mangle]
+#[inline(never)]
 fn clear_bss() {
     extern "C" { fn sbss(); fn ebss(); }
     // A relatively faster way to clear the bss section

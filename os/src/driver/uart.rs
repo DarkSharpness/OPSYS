@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use crate::uart_println;
+
 type Uptr = * mut u8;
 const UART : Uptr = 0x1000_0000 as Uptr; // 1 << (7 * 4)
 const RBR : Uptr = UART.wrapping_add(0x0);
@@ -64,6 +66,8 @@ pub unsafe fn init() {
 
     // Enable receiver and transmitter
     IER.write_volatile(ier::RX_ENABLE | ier::TX_ENABLE);
+
+    uart_println!("UART initialization done!");
 }
 
 #[no_mangle]
@@ -83,6 +87,7 @@ pub unsafe fn getc() -> i32 {
 #[no_mangle]
 #[inline(never)]
 pub unsafe fn shutdown() {
+    uart_println!("Shutting down the machine...");
     let pos = 0x100000 as * mut u32;
     pos.write_volatile(0x5555);
 }
