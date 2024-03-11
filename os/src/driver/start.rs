@@ -104,4 +104,7 @@ unsafe fn init_timer() {
 
     mscratch::write(TIME_SCRATCH.as_ptr() as usize);
     mtvec::write(time_handle as usize, mtvec::TrapMode::Direct);
+
+    mstatus::set_mie();
+    mie::set_mtimer();
 }

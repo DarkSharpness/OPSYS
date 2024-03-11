@@ -102,3 +102,38 @@ user_return:
     # Return to user mode
     sret
 user_return.end:
+
+    .globl time_handle
+time_handle:
+    # Why I choose a0 ~ a3 ?
+    # Because they can help generate compressed instruction.
+    # See c.sd / c.ld in RISC-V spec.
+
+    csrrw a0, mscratch, a0  # Swap with mscratch
+    sd a1, 0(a0)    # 8-byte spill
+    sd a2, 8(a0)    # 8-byte spill
+    sd a3, 16(a0)   # 8-byte spill
+
+    ld a1, 24(a0)   # MTIMECMP address
+    ld a2, 32(a0)   # Time interval
+
+    ld a3, 0(a1)    # MTIMECMP value
+    add a3, a3, a2  # New MTIMECMP value
+    sd a3, 0(a1)    # Update new MTIMECMP
+
+    # Do not copy xv6's code.
+    # - li a0, 2 
+    # - csrw sip, a0
+    # That will involve one more instruction.
+
+    # This arranges for a supervisor-level interrupt,
+    # after this handle returns.
+    csrwi sip, 2
+
+    ld a1, 0(a0)    # 8-byte reload
+    ld a2, 8(a0)    # 8-byte reload
+    ld a3, 16(a0)   # 8-byte reload
+    csrrw a0, mscratch, a0  # Swap back
+
+    mret
+time_handle.end:
