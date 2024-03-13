@@ -104,6 +104,7 @@ user_return:
 user_return.end:
 
     .globl time_handle
+    .align 4
 time_handle:
     # Why I choose a0 ~ a3 ?
     # Because they can help generate compressed instruction.
