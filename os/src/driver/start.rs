@@ -2,11 +2,11 @@ use core::{arch, mem::size_of};
 use riscv::register::*;
 use crate::{uart_print, uart_println};
 use crate::uart::init as init_uart;
-use crate::layout::clint;
+use crate::layout::{clint, NCPU};
 
 // In driver.asm and trap.asm
 extern "C" { fn time_handle(); fn drop_mode(); }
-static mut TIME_SCRATCH: [u64 ; 5] = [0 ; 5];
+static mut TIME_SCRATCH: [[u64 ; 5]; NCPU] = [[0 ; 5]; NCPU];
 
 #[inline(never)]
 pub unsafe fn init() {
@@ -71,6 +71,7 @@ unsafe fn init_intr() {
     sie::set_sext();    // External interrupt
     sie::set_stimer();  // Timer interrupt
     sie::set_ssoft();   // Software interrupt
+    sstatus::set_sie(); // Enable interrupt
 }
 
 /**
@@ -94,17 +95,23 @@ unsafe fn init_page() {
 #[no_mangle]
 #[inline(never)]
 unsafe fn init_timer() {
-    let interval = 1 << 20; // About 0.1s on QEMU
-    clint::MTIMECMP.write_volatile(
-        clint::MTIME.read_volatile() + interval,
-    );
+    let id = mhartid::read(); // Get the hart id
+    let interval = 1 << 22; // About 0.1s on QEMU
+    let mtimecmp = clint::MTIMECMP.wrapping_add(id);
+    let mtime    = clint::MTIME.wrapping_add(id);
+    let time_scratch = TIME_SCRATCH[id].as_mut_ptr();
 
-    TIME_SCRATCH[3] = clint::MTIMECMP as u64;
-    TIME_SCRATCH[4] = interval;
+    // Set mtimecmp to mtime + interval
+    *mtimecmp = *mtime + interval;
 
-    mscratch::write(TIME_SCRATCH.as_ptr() as usize);
-    mtvec::write(time_handle as usize, mtvec::TrapMode::Direct);
+    // time_scratch[0..2]   = temporary storage
+    // time_scratch[3]      = mtimecmp address
+    // time_scratch[4]      = interval
+    *time_scratch.wrapping_add(3) = mtimecmp as _;
+    *time_scratch.wrapping_add(4) = interval as _;
 
+    mscratch::write(time_scratch as _);
+    mtvec::write(time_handle as _, mtvec::TrapMode::Direct);
     mstatus::set_mie();
     mie::set_mtimer();
 }
