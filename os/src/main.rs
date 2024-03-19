@@ -10,6 +10,7 @@ mod driver;
 mod trap;
 mod play;
 mod layout;
+mod alloc;
 
 use core::arch::global_asm;
 
