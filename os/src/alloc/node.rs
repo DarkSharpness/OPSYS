@@ -50,15 +50,23 @@ impl List {
         return head == next;
     }
 
+    #[inline(never)] #[export_name = "debug_nodelist"]
     pub unsafe fn debug(&self, rank : usize, base : *const u8) {
         let len = 1 << rank;
         let head = &self.head as *const Node;
         let mut next = (*head).next;
+        let mut rcnt = 0;
         while head != next {
             let node = next as *const u8;
             let offset = (node.offset_from(base) / PAGE_SIZE as isize) as usize;
-            uart_print!("[{},{}) ", offset, offset + len);
+            if rcnt == 0 {
+                uart_print!("  [{},{}) ", offset, offset + len);
+            } else {
+                uart_print!(", [{},{}) ", offset, offset + len);
+            }
+            rcnt += 1;
             next = (*next).next;
         }
+        if rcnt != 0 { uart_print!("\n"); }
     }
 }
