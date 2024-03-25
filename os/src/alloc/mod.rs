@@ -10,7 +10,7 @@ const HUGE_SIZE : usize     = 4096 * 512;
 
 const PAGE_BITS : usize = 12;               // Page bits
 const PAGE_SIZE : usize = 1 << PAGE_BITS;   // Page size
-const WORD_BITS : usize = 64;               // 64-bit bitmap
+const WORD_BITS : usize = 8;                // byte level bitmap
 
 const MAX_BITS  : usize = 7 + 10 + 10;      // Maximum buddy rank
 const MAX_SIZE  : usize = 1 << MAX_BITS;    // Maximum buddy byte (128MB)

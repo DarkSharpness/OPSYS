@@ -9,7 +9,7 @@ pub struct BuddyAllocator;
 const ALLOC  :  usize       = 0x80010000;
 const RKLIST : *mut List    = ALLOC as _;
 const BASE   : *mut *mut u8 = ALLOC.wrapping_add(size_of::<[List; MAX_BITS]>()) as _;
-const BITMAP : *mut u64     = ALLOC.wrapping_add(PAGE_SIZE) as _;
+const BITMAP : *mut u8      = ALLOC.wrapping_add(PAGE_SIZE) as _;
 
 unsafe fn get_rank(mut size : usize) -> usize {
     let mut rank = 0;
@@ -17,12 +17,37 @@ unsafe fn get_rank(mut size : usize) -> usize {
     return rank;
 }
 
+#[inline(always)]
 unsafe fn rklist(idx : usize) -> *mut List {
     return RKLIST.add(idx);
 }
 
+#[inline(always)]
 unsafe fn mask(rank : usize) -> usize {
     return 1 << (MAX_RANK - rank - 1);
+}
+
+/* Divide and mod operation to get word and offset. */
+#[inline(always)]
+unsafe fn div_mod(num : usize) -> (* mut u8, usize) {
+    return (BITMAP.add(num / WORD_BITS), num % WORD_BITS);
+}
+
+/* Remove the buddy for the free list. */
+#[inline(always)]
+unsafe fn remove_buddy(num : usize, rank : usize) {
+    unlink(set_index(num ^ 1, rank) as _);
+}
+
+/* Find the first non-empty list. */
+#[inline(always)]
+unsafe fn find_first(rank : usize) -> usize{
+    let mut ret = rank;
+    loop {
+        if rank >= MAX_RANK { panic!("Out of memory!"); }
+        if !(*rklist(ret)).empty() { break; }
+        ret += 1;
+    } return ret;
 }
 
 /* Return the given number of start address and rank.  */
@@ -41,23 +66,20 @@ unsafe fn set_index(num : usize, rank : usize) -> *mut u8 {
 
 /* Set a bit as busy. */
 unsafe fn set_busy(num : usize) {
-    let bit = num % WORD_BITS;
-    let ptr = BITMAP.add(num / WORD_BITS);
+    let (ptr, bit) = div_mod(num);
     ptr.write(ptr.read() & !(1 << bit));
 }
 
 /* Set a bit as busy. */
 unsafe fn set_free(num : usize) {
-    let bit = num % WORD_BITS;
-    let ptr = BITMAP.add(num / WORD_BITS);
+    let (ptr, bit) = div_mod(num);
     ptr.write(ptr.read() | 1 << bit);
 }
 
 /* Test and set this bit and buddy bit accordingly.  */
 unsafe fn test_and_set(num : usize, rank : usize) -> bool {
-    let bit = num % WORD_BITS;
+    let (ptr, bit) = div_mod(num);
     let bud = bit ^ 1;
-    let ptr = BITMAP.add(num / WORD_BITS);
     let val = ptr.read();
     if (val & (1 << bud)) != 0 {
         // If buddy free, merge into larger block.
@@ -69,21 +91,6 @@ unsafe fn test_and_set(num : usize, rank : usize) -> bool {
         ptr.write(val | (1 << bit));
         return false;
     }
-}
-
-#[inline(always)]
-unsafe fn remove_buddy(num : usize, rank : usize) {
-    unlink(set_index(num ^ 1, rank) as _);
-}
-
-#[inline(always)]
-unsafe fn find_first(rank : usize) -> usize{
-    let mut ret = rank;
-    loop {
-        if rank >= MAX_RANK { panic!("Out of memory!"); }
-        if !(*rklist(ret)).empty() { break; }
-        ret += 1;
-    } return ret;
 }
 
 /* Try to allocate memory for buddy allocator. */
