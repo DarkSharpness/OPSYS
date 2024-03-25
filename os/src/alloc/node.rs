@@ -1,3 +1,7 @@
+use crate::uart_print;
+
+use super::PAGE_SIZE;
+
 pub struct Node {
     pub prev : *mut Node,
     pub next : *mut Node,
@@ -28,7 +32,8 @@ impl List {
 
     pub unsafe fn push(&mut self, node : *mut Node) {
         let head = &mut self.head as *mut Node;
-        link(node, (*head).next);
+        let next = (*head).next;
+        link(node, next);
         link(head, node);
     }
 
@@ -43,5 +48,17 @@ impl List {
         let head = &self.head as *const Node;
         let next = (*head).next as *const Node;
         return head == next;
+    }
+
+    pub unsafe fn debug(&self, rank : usize, base : *const u8) {
+        let len = 1 << rank;
+        let head = &self.head as *const Node;
+        let mut next = (*head).next;
+        while head != next {
+            let node = next as *const u8;
+            let offset = (node.offset_from(base) / PAGE_SIZE as isize) as usize;
+            uart_print!("[{},{}) ", offset, offset + len);
+            next = (*next).next;
+        }
     }
 }
