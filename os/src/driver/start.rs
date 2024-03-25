@@ -111,9 +111,6 @@ unsafe fn init_timer() {
     *time_scratch.wrapping_add(3) = mtimecmp as _;
     *time_scratch.wrapping_add(4) = interval as _;
 
-    extern "C" { fn fuck(); }
-    stvec::write(fuck as _, stvec::TrapMode::Direct);
-
     mscratch::write(time_scratch as _);
     mtvec::write(time_handle as _, mtvec::TrapMode::Direct);
 
