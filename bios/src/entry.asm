@@ -1,8 +1,8 @@
     .section .text.bios
     .globl bios_start
 bios_start:
-    la sp, bios_stack_top
-    j bios_main
+    li t0, 0x80200000
+    jr t0
 
     .section .bss.bios
 
