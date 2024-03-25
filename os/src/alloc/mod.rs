@@ -19,12 +19,13 @@ const MAX_RANK  : usize = MAX_BITS - PAGE_BITS; // Maximum buddy rank
 const MAP_SIZE  : usize = (2 << MAX_RANK) / WORD_BITS; // Bitmap size
 
 use core::alloc::{GlobalAlloc, Layout};
+use buddy::BuddyAllocator;
+use alloc::vec::Vec;
+extern crate alloc;
 
-use self::buddy::BuddyAllocator;
+struct Buddy;
 
-pub struct Dummy;
-
-unsafe impl GlobalAlloc for Dummy {
+unsafe impl GlobalAlloc for Buddy {
     unsafe fn alloc(&self, _layout: Layout) -> *mut u8 {
         return BuddyAllocator::allocate(_layout.size())
     }
@@ -33,17 +34,13 @@ unsafe impl GlobalAlloc for Dummy {
     }
 }
 
-extern "C" {
-fn ekernel();
-}
+#[global_allocator]
+static GLOBAL_ALLOCATOR : Buddy = Buddy;
 
-
-#[inline(always)]
-fn align_huge_page(num : usize) -> usize {
-    return (num + HUGE_SIZE - 1) / HUGE_SIZE * HUGE_SIZE;
-}
-
+/* Call this function to initialize the fucking buddy system. */
 pub fn init_buddy() {
+    extern "C" { fn ekernel(); }
+
     let mut rank = 12;
     let pool = align_huge_page(ekernel as usize);
     let diff = QEMU_END - pool;
@@ -53,9 +50,31 @@ pub fn init_buddy() {
 
     unsafe {
         BuddyAllocator::first_init(pool as _, rank);
-        let ptr = BuddyAllocator::allocate(10);
-        BuddyAllocator::debug();
-        BuddyAllocator::deallocate(ptr, 10);
-        BuddyAllocator::debug();
+        // play();
     }
+}
+
+#[inline(always)]
+fn align_huge_page(num : usize) -> usize {
+    return (num + HUGE_SIZE - 1) / HUGE_SIZE * HUGE_SIZE;
+}
+
+unsafe fn play() {
+    let p1 = BuddyAllocator::allocate(1);
+    let mut t : Vec<[i32; PAGE_SIZE * PAGE_SIZE]> = Vec::new();
+    t.reserve(2);
+
+    BuddyAllocator::debug();
+
+    let p2 = BuddyAllocator::allocate(1);
+
+    BuddyAllocator::debug();
+
+    BuddyAllocator::deallocate(p1, 1);
+
+    BuddyAllocator::debug();
+
+    BuddyAllocator::deallocate(p2, 1);
+
+    BuddyAllocator::debug();
 }
