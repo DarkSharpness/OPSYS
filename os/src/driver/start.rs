@@ -3,6 +3,7 @@ use riscv::register::*;
 use crate::{uart_print, uart_println};
 use crate::uart::init as init_uart;
 use crate::layout::{clint, NCPU};
+use crate::alloc;
 
 // In driver.asm and trap.asm
 extern "C" { fn time_handle(); fn drop_mode(); }
@@ -14,6 +15,9 @@ pub unsafe fn init() {
     init_bss();
     // Initialize the uart for console I/O
     init_uart();
+
+    // Initialize the buddy system allocator
+    alloc::init_buddy();
 
     uart_print!("Dropping to supervisor mode... ");
 
