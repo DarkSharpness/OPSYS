@@ -1,12 +1,28 @@
     .section .text.trap
     .globl user_handle
-    .align 4
+    .align 8
 user_handle:
+/*
+    This trampoline should be placed at 0x80001000.
+    This page has the same physical address as virtual one.
+
+    Trap frame layout (at user-space virtual 0x80000000):
+        [0x000, 0x0f8): 31 General purpose registers.
+        [0x0f8, 0x100): User's program counter.
+        [0x100, 0x108): Thread number of the process.
+        [0x108, 0x110): Kernel stack pointer.
+
+    This trampoline page (0x80001000) should be executable-only.
+    That trap frame page (0x80000000) should be read/write-only.
+    Both page can only be accessed in supervisor mode, which
+    means the U bit of those 2 pages should be 0.
+*/
+
     # Change to trap frame
     csrw sscratch, sp
     li sp, 0x80000000
 
-    # Save all registers on user's stack
+    # Save all registers on user's trap frame
     sd ra, 0(sp)
     sd gp, 8(sp)
     sd tp, 16(sp)
@@ -42,7 +58,13 @@ user_handle:
     sd t6, 232(sp)
 
     csrr t0, sscratch
-    sd t0, 240(sp) # Old sp
+    csrr t1, sepc
+
+    sd t0, 240(sp)  # Uses's stack pointer
+    sd t1, 248(sp)  # User's program counter
+
+    ld tp, 256(sp)  # Thread number
+    ld sp, 264(sp)  # Kernel stack pointer
 
     # Wait old memory operation to finish
     # Then, disable page table. Our kernel is not using it.
@@ -50,63 +72,82 @@ user_handle:
     csrw satp, zero
     sfence.vma zero, zero
 
-    # Jump to the real handler
-    j user_trap
+    # Jump to the real user trap handler
+    la t0, user_trap
+    jr t0
 
 user_handle.end:
 
+    .globl user_handle_end
+    .align 8
+user_handle_end:
+
     .globl user_return
+    .align 8
 user_return:
-    # Wait old memory operation to finish
-    # Then, enable page table. User has its own page table.
+/*
+    This function should be placed at 0x80001800.
+    It shares the same page with trampoline page.
+*/
+
+    # Switch to user's page-table first.
     sfence.vma zero, zero
     csrw satp, a0
     sfence.vma zero, zero
 
     li sp, 0x80000000
 
-    # Load all registers from user's stack
-    ld s1, 64(sp)
-    ld a0, 72(sp)
-    ld a1, 80(sp)
-    ld a2, 88(sp)
-    ld a3, 96(sp)
-    ld a4, 104(sp)
-    ld a5, 112(sp)
-    ld a6, 120(sp)
-
-    ld a7, 128(sp)
-    ld s2, 136(sp)
-    ld s3, 144(sp)
-    ld s4, 152(sp)
-    ld s5, 160(sp)
-    ld s6, 168(sp)
-    ld s7, 176(sp)
-    ld s8, 184(sp)
-
-    ld s9, 192(sp)
-    ld s10,200(sp)
-    ld s11,208(sp)
-    ld t3, 216(sp)
-    ld t4, 224(sp)
-    ld t5, 232(sp)
-    ld t6, 240(sp)
-
-    ld gp, 16(sp)
-    ld tp, 24(sp)
-    ld t0, 32(sp)
-    ld t1, 40(sp)
-    ld t2, 48(sp)
-    ld s0, 56(sp)
+    # Restore all registers from user's trap frame
     ld ra, 0(sp)
-    ld sp, 8(sp)
+    ld gp, 8(sp)
+    ld tp, 16(sp)
+    ld t0, 24(sp)
+    ld t1, 32(sp)
+    ld t2, 40(sp)
+    ld s0, 48(sp)
+    ld s1, 56(sp)
 
-    # Return to user mode
+    ld a0, 64(sp)
+    ld a1, 72(sp)
+    ld a2, 80(sp)
+    ld a3, 88(sp)
+    ld a4, 96(sp)
+    ld a5, 104(sp)
+    ld a6, 112(sp)
+    ld a7, 120(sp)
+
+    ld s2, 128(sp)
+    ld s3, 136(sp)
+    ld s4, 144(sp)
+    ld s5, 152(sp)
+    ld s6, 160(sp)
+    ld s7, 168(sp)
+    ld s8, 176(sp)
+    ld s9, 184(sp)
+
+    ld s10,192(sp)
+    ld s11,200(sp)
+    ld t3, 208(sp)
+    ld t4, 216(sp)
+    ld t5, 224(sp)
+
+    ld t6, 248(sp)  # User's program counter
+    csrw sepc, t6
+
+    ld t6, 232(sp)
+    ld sp, 240(sp)  # User's stack pointer
+
+    # Return to user's program
     sret
 user_return.end:
 
+    .globl user_return_end
+    .align 8
+user_return_end:
+
+
     .globl core_handle
-    .align 4
+    .align 8
 core_handle:
     addi sp, sp, -192
 
@@ -161,7 +202,7 @@ core_handle:
 core_handle.end:
 
     .globl time_handle
-    .align 4
+    .align 8
 time_handle:
     # Why I choose a0 ~ a3 ?
     # Because they can help generate compressed instruction.
@@ -195,3 +236,10 @@ time_handle:
 
     mret
 time_handle.end:
+
+    .globl return_to_user
+    .align 8
+return_to_user:
+    li t0, 0x80001800   # call user_return
+    jr t0
+return_to_user.end:
