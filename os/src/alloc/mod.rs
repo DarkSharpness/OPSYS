@@ -21,6 +21,8 @@ const MAP_SIZE  : usize = (2 << MAX_RANK) / WORD_BITS; // Bitmap size
 use core::alloc::{GlobalAlloc, Layout};
 use buddy::BuddyAllocator;
 use alloc::vec::Vec;
+
+use crate::{debug::print_separator, uart_println};
 extern crate alloc;
 
 struct Buddy;
@@ -38,21 +40,26 @@ unsafe impl GlobalAlloc for Buddy {
 static GLOBAL_ALLOCATOR : Buddy = Buddy;
 
 /* Call this function to initialize the fucking buddy system. */
-pub fn init_buddy() {
+pub unsafe fn init_buddy(mem_end : usize)  {
     extern "C" { fn ekernel(); }
 
     let mut rank = 12;
     let pool = align_huge_page(ekernel as usize);
-    let diff = QEMU_END - pool;
+    let diff = mem_end - pool;
 
     while (1 << rank) <= diff { rank += 1; }
     rank -= 1 + PAGE_BITS;
 
-    unsafe {
-        BuddyAllocator::first_init(pool as _, rank);
-        // play();
-    }
+    BuddyAllocator::first_init(pool as _, rank);
+
+    uart_println!("Allocator initialized! {} MiB in all!",
+        (PAGE_SIZE << rank) >> 20);
+
+    BuddyAllocator::debug();
+
+    print_separator();
 }
+
 
 #[inline(always)]
 fn align_huge_page(num : usize) -> usize {
@@ -61,7 +68,7 @@ fn align_huge_page(num : usize) -> usize {
 
 unsafe fn play() {
     let p1 = BuddyAllocator::allocate(1);
-    let mut t : Vec<[i32; PAGE_SIZE * PAGE_SIZE]> = Vec::new();
+    let mut t : Vec<[i32; PAGE_SIZE * PAGE_BITS]> = Vec::new();
     t.reserve(2);
 
     BuddyAllocator::debug();

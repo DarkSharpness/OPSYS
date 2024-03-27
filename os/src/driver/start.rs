@@ -1,9 +1,12 @@
 use core::{arch, mem::size_of};
 use riscv::register::*;
+use crate::driver::get_mem_end;
 use crate::{uart_print, uart_println};
 use crate::uart::init as init_uart;
 use crate::layout::{clint, NCPU};
 use crate::alloc;
+
+use super::get_tid;
 
 // In driver.asm and trap.asm
 extern "C" { fn time_handle(); fn drop_mode(); }
@@ -17,7 +20,10 @@ pub unsafe fn init() {
     init_uart();
 
     // Initialize the buddy system allocator
-    alloc::init_buddy();
+    // Only initialize once (by the first core)
+    if get_tid() == 0 {
+        alloc::init_buddy(get_mem_end());
+    }
 
     uart_print!("Dropping to supervisor mode... ");
 
@@ -100,7 +106,7 @@ unsafe fn init_page() {
 #[no_mangle]
 #[inline(never)]
 unsafe fn init_timer() {
-    let id = mhartid::read(); // Get the hart id
+    let id = get_tid();
     let interval = 1 << 22; // About 0.1s on QEMU
     let mtimecmp = clint::MTIMECMP.wrapping_add(id);
     let mtime    = clint::MTIME.wrapping_add(id);
