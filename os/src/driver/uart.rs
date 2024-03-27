@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::uart_println;
+use crate::{debug::print_separator, uart_println};
 
 type Uptr = * mut u8;
 const UART : Uptr = 0x1000_0000 as Uptr; // 1 << (7 * 4)
@@ -68,6 +68,7 @@ pub unsafe fn init() {
     IER.write_volatile(ier::RX_ENABLE | ier::TX_ENABLE);
 
     uart_println!("UART initialization done!");
+    print_separator();
 }
 
 #[no_mangle]
