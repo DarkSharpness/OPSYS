@@ -26,6 +26,7 @@ unsafe fn os_main() {
     init_tid_and_end_address();
     start::init();
     if get_tid() == 0 {
+        trap::init_trap();
         uart::shutdown();
         trap::user_trap();
     }
