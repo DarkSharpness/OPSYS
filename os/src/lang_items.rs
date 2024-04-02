@@ -1,4 +1,4 @@
-use crate::{driver::uart, uart_println as println};
+use crate::{driver::{self}, uart_println as println};
 use core::panic::PanicInfo;
 
 #[panic_handler]
@@ -14,6 +14,6 @@ fn panic(info: &PanicInfo) -> ! {
     } else {
         println!("Panicked: {}", info.message().unwrap());
     }
-    unsafe { uart::shutdown() };
+    unsafe { driver::shutdown() }
     loop {}
 }

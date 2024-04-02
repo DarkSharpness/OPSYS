@@ -5,7 +5,6 @@
 
 mod lang_items;
 mod console;
-mod sbi;
 mod driver;
 mod trap;
 mod play;
@@ -27,7 +26,7 @@ unsafe fn os_main() {
     start::init();
     if get_tid() == 0 {
         trap::init_trap();
-        uart::shutdown();
+        driver::shutdown();
         trap::user_trap();
     }
 }

@@ -1,4 +1,4 @@
-use crate::driver::uart::putc as putchar;
+use crate::driver::uart::sync_putc as putchar;
 use core::fmt::{self, Write};
 
 struct Stdout;

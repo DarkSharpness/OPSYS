@@ -73,22 +73,92 @@ pub unsafe fn init() {
 
 #[no_mangle]
 #[inline(never)]
-pub unsafe fn putc(c : u8) {
+pub unsafe fn sync_putc(c : u8) {
     while (LSR.read_volatile() & lsr::TX_IDLE) == 0 {}
     THR.write_volatile(c);
 }
 
 #[no_mangle]
 #[inline(never)]
-pub unsafe fn getc() -> i32 {
+pub unsafe fn sync_getc() -> i32 {
     while (LSR.read_volatile() & lsr::RX_DONE) == 0 {}
     RBR.read_volatile() as i32
 }
 
+/**
+ * Get the char from UART
+ * If there is no char in the buffer, return None
+ */
 #[no_mangle]
 #[inline(never)]
-pub unsafe fn shutdown() {
-    uart_println!("Shutting down the machine...");
-    let pos = 0x100000 as * mut u32;
-    pos.write_volatile(0x5555);
+pub unsafe fn uart_getc() -> Option<i32> {
+    if (LSR.read_volatile() & lsr::RX_DONE) == 0 {
+        None
+    } else {
+        Some(RBR.read_volatile() as i32)
+    }
 }
+
+const BUFFER_SIZE : usize = 1024;
+static mut BUFFER : [u8; 1024] = [0; BUFFER_SIZE];
+static mut HEAD : usize = 0;
+static mut TAIL : usize = 0;
+
+#[no_mangle]
+#[inline(never)]
+unsafe fn uart_putc(c : u8) {
+    // Acquire lock?
+
+    while TAIL == HEAD + BUFFER_SIZE {
+        // Buffer is full!
+        // Should sleep
+        todo!("Buffer is full!");
+    }
+
+    BUFFER[TAIL % BUFFER_SIZE] = c;
+    TAIL += 1;
+
+    uart_start();
+
+    // Release lock?
+}
+
+
+/**
+ * Lock holder should call uart_start() to start sending data
+ */
+#[no_mangle]
+#[inline(never)]
+unsafe fn uart_start() {
+    while HEAD != TAIL {
+        // The buffer is full, we cannot put more data
+        if (LSR.read_volatile() & lsr::TX_IDLE) == 0 { return; }
+
+        let c = BUFFER[HEAD % BUFFER_SIZE];
+        HEAD += 1;
+
+        // May be wake up some putc waiting for buffer first.
+        THR.write_volatile(c);
+    }
+}
+
+#[no_mangle]
+#[inline(never)]
+unsafe fn uart_trap() {
+    loop {
+        match uart_getc() {
+            Some(c) => {
+                todo!("Console putchar {}", c as u8 as char);
+                // Call console intr
+            },
+            None => break
+        }
+    }
+
+    // Take the lock first.
+
+    uart_start();
+
+    // Release the lock.
+}
+

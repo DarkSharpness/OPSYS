@@ -16,12 +16,11 @@ static mut TIME_SCRATCH: [[u64 ; 5]; NCPU] = [[0 ; 5]; NCPU];
 pub unsafe fn init() {
     // Clear the bss section
     init_bss();
-    // Initialize the uart for console I/O
-    init_uart();
 
     // Initialize the buddy system allocator
     // Only initialize once (by the first core)
     if get_tid() == 0 {
+        init_uart();
         alloc::init_buddy(get_mem_end());
     }
 
