@@ -36,15 +36,15 @@ pub unsafe fn init_alloc(mem_end : usize)  {
     while (1 << rank) <= diff { rank += 1; }
     rank -= 1 + PAGE_BITS;
 
-    let __ret = BuddyAllocator::first_init(rank);
+    BuddyAllocator::first_init(rank);
     uart_println!("Buddy allocator initialized! {} MiB in all!", (PAGE_SIZE << rank) >> 20);
     BuddyAllocator::debug();
 
     print_separator();
 
-    let __ret = FrameAllocator::first_init();
-    uart_println!("Frame allocator initialized! {} Pages available!", __ret);
-
+    FrameAllocator::first_init();
+    uart_println!("Frame allocator initialized! {} Pages available!", FrameAllocator::size());
+    FrameAllocator::debug();
     print_separator();
 }
 
