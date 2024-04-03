@@ -1,6 +1,8 @@
 use core::arch;
 use riscv::register::*;
-use super::{return_to_user, set_kernel_trap};
+use crate::trap::set_kernel_trap;
+
+use super::return_to_user;
 
 
 /**

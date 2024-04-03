@@ -1,5 +1,5 @@
-BIOS_PATH = ../bios/target/riscv64gc-unknown-none-elf/release/bios
-OS_PATH = target/riscv64gc-unknown-none-elf/release/os
+KERNEL_BIN	 	= target/riscv64gc-unknown-none-elf/release/os
+KERNEL_ENTRY_PA = 0x80000000
 
 build:
 	cargo build --release
@@ -7,24 +7,15 @@ build:
 test:
 	cargo build --release
 	qemu-system-riscv64 \
-	-machine virt \
-	-nographic \
-	-bios $(BIOS_PATH) \
-	-kernel $(OS_PATH) \
-	-s -S
-
-old:
-	cargo build --release
-	qemu-system-riscv64 \
-	-machine virt \
-	-nographic \
-	-bios default \
-	-kernel target/riscv64gc-unknown-none-elf/release/os \
-	-s -S
+		-machine virt \
+		-nographic \
+		-bios none \
+		-device loader,file=$(KERNEL_BIN),addr=$(KERNEL_ENTRY_PA) \
+		-s -S
 
 gdb:
 	riscv64-unknown-elf-gdb \
-	-ex 'file $(OS_PATH)' \
+	-ex 'file $(KERNEL_BIN)' \
 	-ex 'set arch riscv:rv64' \
 	-ex 'target remote localhost:1234'
 
