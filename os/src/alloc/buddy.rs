@@ -45,14 +45,14 @@ unsafe fn find_first(rank : usize) -> usize{
 
 /* Return the given number of start address and rank.  */
 unsafe fn get_index(ptr : *mut u8, rank : usize) -> usize {
-    let addr = BASE;
+    let addr = BUDDY_START;
     let bias = (ptr as usize - addr as usize) / PAGE_SIZE;
     return bias >> rank | mask(rank);
 }
 
 /* Return the start address of given number and rank. */
 unsafe fn set_index(num : usize, rank : usize) -> *mut u8 {
-    let addr = BASE;
+    let addr = BUDDY_START;
     let bias = ((num & (mask(rank) - 1)) << rank) * PAGE_SIZE;
     return addr.wrapping_add(bias);
 }
@@ -129,8 +129,8 @@ impl BuddyAllocator {
     pub unsafe fn first_init(rank : usize) {
         init_rklist(); init_bitmap();
 
-        (*rklist(rank)).push(BASE as _);
-        set_free(get_index(BASE, rank));
+        (*rklist(rank)).push(BUDDY_START as _);
+        set_free(get_index(BUDDY_START, rank));
     }
 
     pub unsafe fn allocate(size : usize) -> *mut u8 {
@@ -143,11 +143,11 @@ impl BuddyAllocator {
     }
 
     pub unsafe fn debug() {
-        uart_println!("Base address: {:p}", BASE);
+        uart_println!("Base address: {:p}", BUDDY_START);
         for i in 0..MAX_RANK {
             let list = rklist(i);
             uart_println!("  Rank {}: ", i);
-            (*list).debug(i, BASE);
+            (*list).debug(i, BUDDY_START);
         }
         uart_println!("End of debug.");
     }

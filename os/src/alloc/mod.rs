@@ -1,4 +1,5 @@
 mod node;
+mod page;
 mod buddy;
 mod frame;
 mod constant;
@@ -28,24 +29,16 @@ static GLOBAL_ALLOCATOR : Dummy = Dummy;
 /* Call this function to initialize the fucking buddy system. */
 pub unsafe fn init_alloc(mem_end : usize)  {
     extern "C" { fn ekernel(); }
-    assert!((ekernel as usize) <= ALLOC, "Invalid setting");
+    assert!((ekernel as usize) <= MEMORY_START, "Kernel too big...");
 
     let mut rank = 12;
-    let diff = mem_end - (BASE as usize);
+    let diff = mem_end - (BUDDY_START as usize);
 
     while (1 << rank) <= diff { rank += 1; }
     rank -= 1 + PAGE_BITS;
 
-    BuddyAllocator::first_init(rank);
-    uart_println!("Buddy allocator initialized! {} MiB in all!", (PAGE_SIZE << rank) >> 20);
-    BuddyAllocator::debug();
-
-    print_separator();
-
-    FrameAllocator::first_init();
-    uart_println!("Frame allocator initialized! {} Pages available!", FrameAllocator::size());
-    FrameAllocator::debug();
-    print_separator();
+    init_buddy(rank);
+    init_frame();    
 }
 
 unsafe fn play() {
@@ -66,4 +59,18 @@ unsafe fn play() {
     BuddyAllocator::deallocate(p2, 1);
 
     BuddyAllocator::debug();
+}
+
+unsafe fn init_frame() {
+    FrameAllocator::first_init();
+    uart_println!("Frame allocator initialized! {} Pages available!", FrameAllocator::size());
+    FrameAllocator::debug();
+    print_separator();
+}
+
+unsafe fn init_buddy(rank : usize) {
+    BuddyAllocator::first_init(rank);
+    uart_println!("Buddy allocator initialized! {} MiB in all!", (PAGE_SIZE << rank) >> 20);
+    BuddyAllocator::debug();
+    print_separator();
 }

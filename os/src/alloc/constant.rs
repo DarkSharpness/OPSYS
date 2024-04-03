@@ -1,8 +1,9 @@
 /**
  * Memory frame:
  * -----------------------------------
- * 
  *  Alloc = 0x80200000
+ * 
+ * Alloc - 2 page:
  * 
  * Alloc + 0 page:
  *  Buddy allocator free list here.
@@ -10,7 +11,7 @@
  * Alloc + sizeof(free_list):
  *  Frame allocator list head here.
  * 
- * Alloc + 1 page:
+ * Alloc + 2 page:
  *  Buddy allocator bitmap here.
  * 
  * Alloc + 8 page:
@@ -27,19 +28,12 @@
  * -----------------------------------
  */
 
-use core::{mem::size_of, usize};
+use crate::alloc::node::List;
 
-use crate::alloc::node::*;
-
-// Buddy allocator data structure
-pub const ALLOC  :  usize       = 0x80200000;
-// Buddy allocator rank list address
-pub const RKLIST : *mut List    = ALLOC as _;
-// Buddy allocator bitmap address
-pub const BITMAP : *mut u8      = ALLOC.wrapping_add(PAGE_SIZE) as _;
-
-// Buddy allocator base address.
-pub const BASE   : *mut u8      = (ALLOC + 0x00200000) as _;
+// A tiny helper funciton
+const fn align_as(usize: usize, align: usize) -> usize {
+    return (usize + align - 1) & !(align - 1);
+}
 
 pub const PAGE_BITS : usize = 12;               // Page bits
 pub const PAGE_SIZE : usize = 1 << PAGE_BITS;   // Page size
@@ -49,16 +43,25 @@ pub const MAX_BITS  : usize = 7 + 10 + 10;      // Maximum buddy rank
 pub const MAX_SIZE  : usize = 1 << MAX_BITS;    // Maximum buddy byte (128MB)
 pub const MAX_RANK  : usize = MAX_BITS - PAGE_BITS; // Maximum buddy rank
 
-pub const MAP_SIZE  : usize = (2 << MAX_RANK) / WORD_BITS; // Bitmap size
+// Buddy allocator data structure
+pub const ALLOC  :  usize       = 0x80200000;
+// Buddy allocator rank list address
+pub const RKLIST : *mut List    = ALLOC as _;
+// Buddy allocator bitmap address
+pub const BITMAP : *mut u8      = ALLOC.wrapping_add(2 * PAGE_SIZE) as _;
+
+// The word that the bitmap takes.
+pub const MAP_SIZE  : usize = (2 << MAX_RANK) / WORD_BITS;
+
+// Buddy allocator base address.
+pub const BUDDY_START   : *mut u8   = (ALLOC + 0x00200000) as _;
+
 // End of bitmap, aligned to 8 pages.
-pub const MAP_LAST  : usize =
-    ALLOC + align_as(PAGE_SIZE + MAP_SIZE * WORD_BITS / 8, 8 * PAGE_SIZE);
+pub const FRAME_START   : *mut u16  =
+    (ALLOC + align_as(PAGE_SIZE + MAP_SIZE * WORD_BITS / 8, 8 * PAGE_SIZE)) as _;
 
-// Frame allocator list head.
-pub const FRLIST : *mut ForwardList =
-    ALLOC.wrapping_add(size_of::<[List; MAX_RANK]>()) as _;
+// The page table physical address.
+pub const PAGE_TABLE : usize = ALLOC - PAGE_SIZE * 2;
 
-// Helper funciton
-const fn align_as(usize: usize, align: usize) -> usize {
-    (usize + align - 1) & !(align - 1)
-}
+// The lowest memory reserved for memory management.
+pub const MEMORY_START : usize = PAGE_TABLE;
