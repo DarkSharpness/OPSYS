@@ -96,6 +96,8 @@ unsafe fn init_intr() {
 unsafe fn init_page() {
     pmpaddr0::write(0x3fffffffffffff);
     pmpcfg0::write(0xf);
+    // Start using page table
+    satp::set(satp::Mode::Sv39, 0, alloc::PAGE_TABLE >> 12);
 }
 
 /**

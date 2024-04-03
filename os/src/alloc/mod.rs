@@ -4,10 +4,13 @@ mod buddy;
 mod frame;
 mod constant;
 
+pub use constant::PAGE_TABLE;
+
 use constant::*;
 use core::alloc::{GlobalAlloc, Layout};
 use buddy::BuddyAllocator;
 use alloc::vec::Vec;
+
 
 use crate::{alloc::frame::FrameAllocator, debug::print_separator, uart_println};
 extern crate alloc;
@@ -38,7 +41,8 @@ pub unsafe fn init_alloc(mem_end : usize)  {
     rank -= 1 + PAGE_BITS;
 
     init_buddy(rank);
-    init_frame();    
+    init_frame();
+    page::init_huge_page();
 }
 
 unsafe fn play() {
