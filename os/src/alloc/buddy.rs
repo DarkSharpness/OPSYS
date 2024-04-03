@@ -1,8 +1,7 @@
 
 use crate::{alloc::node::*, uart_println};
 
-use super::*;
-use constant::*;
+use super::constant::*;
 pub struct BuddyAllocator;
 
 unsafe fn get_rank(mut size : usize) -> usize {
@@ -147,7 +146,7 @@ impl BuddyAllocator {
         uart_println!("Base address: {:p}", BASE);
         for i in 0..MAX_RANK {
             let list = rklist(i);
-            uart_println!("Rank {}: ", i);
+            uart_println!("  Rank {}: ", i);
             (*list).debug(i, BASE);
         }
         uart_println!("End of debug.");

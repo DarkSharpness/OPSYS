@@ -11,6 +11,10 @@ pub struct List {
     pub head : Node
 }
 
+pub struct ForwardList {
+    pub head : *mut Node,
+}
+
 #[inline(always)]
 pub unsafe fn link(prev : *mut Node, next : *mut Node) {
     (*prev).next = next; (*next).prev = prev;
@@ -60,7 +64,8 @@ impl List {
             let node = next as *const u8;
             let offset = (node.offset_from(base) / PAGE_SIZE as isize) as usize;
             if rcnt == 0 {
-                uart_print!("  [{},{}) ", offset, offset + len);
+                uart_print!("  ");
+                uart_print!("- [{},{}) ", offset, offset + len);
             } else {
                 uart_print!(", [{},{}) ", offset, offset + len);
             }
@@ -68,5 +73,27 @@ impl List {
             next = (*next).next;
         }
         if rcnt != 0 { uart_print!("\n"); }
+    }
+}
+
+
+impl ForwardList {
+    pub unsafe fn init(&mut self) {
+        self.head = core::ptr::null_mut();
+    }
+
+    pub unsafe fn push(&mut self, node : *mut Node) {
+        (*node).prev = self.head;
+        self.head = node;
+    }
+
+    pub unsafe fn pop(&mut self) -> *mut Node {
+        let node = self.head;
+        self.head = (*node).prev;
+        return node;
+    }
+
+    pub unsafe fn empty(&self) -> bool {
+        return self.head.is_null();
     }
 }

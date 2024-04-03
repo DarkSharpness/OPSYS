@@ -8,7 +8,7 @@ use core::alloc::{GlobalAlloc, Layout};
 use buddy::BuddyAllocator;
 use alloc::vec::Vec;
 
-use crate::{debug::print_separator, uart_println};
+use crate::{alloc::frame::FrameAllocator, debug::print_separator, uart_println};
 extern crate alloc;
 
 struct Dummy;
@@ -29,19 +29,21 @@ static GLOBAL_ALLOCATOR : Dummy = Dummy;
 pub unsafe fn init_alloc(mem_end : usize)  {
     extern "C" { fn ekernel(); }
     assert!((ekernel as usize) <= ALLOC, "Invalid setting");
-    
+
     let mut rank = 12;
     let diff = mem_end - (BASE as usize);
 
     while (1 << rank) <= diff { rank += 1; }
     rank -= 1 + PAGE_BITS;
 
-    BuddyAllocator::first_init(rank);
-
-    uart_println!("Allocator initialized! {} MiB in all!",
-        (PAGE_SIZE << rank) >> 20);
-
+    let __ret = BuddyAllocator::first_init(rank);
+    uart_println!("Buddy allocator initialized! {} MiB in all!", (PAGE_SIZE << rank) >> 20);
     BuddyAllocator::debug();
+
+    print_separator();
+
+    let __ret = FrameAllocator::first_init();
+    uart_println!("Frame allocator initialized! {} Pages available!", __ret);
 
     print_separator();
 }
