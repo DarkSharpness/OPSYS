@@ -21,7 +21,7 @@ pub unsafe fn init() {
     // Only initialize once (by the first core)
     if get_tid() == 0 {
         init_uart();
-        alloc::init_buddy(get_mem_end());
+        alloc::init_alloc(get_mem_end());
     }
 
     uart_print!("Dropping to supervisor mode... ");

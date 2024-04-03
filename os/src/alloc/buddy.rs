@@ -1,15 +1,9 @@
-use core::mem::size_of;
 
 use crate::{alloc::node::*, uart_println};
 
 use super::*;
-
+use constant::*;
 pub struct BuddyAllocator;
-
-const ALLOC  :  usize       = 0x80010000;
-const RKLIST : *mut List    = ALLOC as _;
-const BASE   : *mut *mut u8 = ALLOC.wrapping_add(size_of::<[List; MAX_BITS]>()) as _;
-const BITMAP : *mut u8      = ALLOC.wrapping_add(PAGE_SIZE) as _;
 
 unsafe fn get_rank(mut size : usize) -> usize {
     let mut rank = 0;
@@ -52,14 +46,14 @@ unsafe fn find_first(rank : usize) -> usize{
 
 /* Return the given number of start address and rank.  */
 unsafe fn get_index(ptr : *mut u8, rank : usize) -> usize {
-    let addr = BASE.read();
+    let addr = BASE;
     let bias = (ptr as usize - addr as usize) / PAGE_SIZE;
     return bias >> rank | mask(rank);
 }
 
 /* Return the start address of given number and rank. */
 unsafe fn set_index(num : usize, rank : usize) -> *mut u8 {
-    let addr = BASE.read();
+    let addr = BASE;
     let bias = ((num & (mask(rank) - 1)) << rank) * PAGE_SIZE;
     return addr.wrapping_add(bias);
 }
@@ -121,20 +115,23 @@ unsafe fn try_dealloc(mut num : usize, mut rank : usize) {
     (*rklist(rank)).push(set_index(num, rank) as _);
 }
 
+/* Init the rank list as empty.  */
 unsafe fn init_rklist() {
     for i in 0..MAX_RANK { (*rklist(i)).init(); }
 }
+
+/* Init the bit map with 0. */
 unsafe fn init_bitmap() {
     for i in 0..MAP_SIZE { BITMAP.add(i).write(0); }
 }
 
+/* Functions of buddy allocator. */
 impl BuddyAllocator {
-    pub unsafe fn first_init(pool : *mut u8, rank : usize) {
+    pub unsafe fn first_init(rank : usize) {
         init_rklist(); init_bitmap();
 
-        BASE.write(pool as _);
-        (*rklist(rank)).push(pool as _);
-        set_free(get_index(pool as _, rank));
+        (*rklist(rank)).push(BASE as _);
+        set_free(get_index(BASE, rank));
     }
 
     pub unsafe fn allocate(size : usize) -> *mut u8 {
@@ -147,13 +144,11 @@ impl BuddyAllocator {
     }
 
     pub unsafe fn debug() {
-        let addr = BASE.read();
-
-        uart_println!("Base address: {:p}", addr);
+        uart_println!("Base address: {:p}", BASE);
         for i in 0..MAX_RANK {
             let list = rklist(i);
             uart_println!("Rank {}: ", i);
-            (*list).debug(i, addr);
+            (*list).debug(i, BASE);
         }
         uart_println!("End of debug.");
     }

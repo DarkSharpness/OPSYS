@@ -1,23 +1,9 @@
 mod node;
 mod buddy;
+mod frame;
+mod constant;
 
-const QEMU_ADD  : usize     = 0x80000000;
-// 128 MB memory for QEMU.
-const QEMU_END  : usize     = QEMU_ADD.wrapping_add(128 << 20);
-
-// Huge page size, 2 MB each.
-const HUGE_SIZE : usize     = 4096 * 512;
-
-const PAGE_BITS : usize = 12;               // Page bits
-const PAGE_SIZE : usize = 1 << PAGE_BITS;   // Page size
-const WORD_BITS : usize = 8;                // byte level bitmap
-
-const MAX_BITS  : usize = 7 + 10 + 10;      // Maximum buddy rank
-const MAX_SIZE  : usize = 1 << MAX_BITS;    // Maximum buddy byte (128MB)
-const MAX_RANK  : usize = MAX_BITS - PAGE_BITS; // Maximum buddy rank
-
-const MAP_SIZE  : usize = (2 << MAX_RANK) / WORD_BITS; // Bitmap size
-
+use constant::*;
 use core::alloc::{GlobalAlloc, Layout};
 use buddy::BuddyAllocator;
 use alloc::vec::Vec;
@@ -25,9 +11,9 @@ use alloc::vec::Vec;
 use crate::{debug::print_separator, uart_println};
 extern crate alloc;
 
-struct Buddy;
+struct Dummy;
 
-unsafe impl GlobalAlloc for Buddy {
+unsafe impl GlobalAlloc for Dummy {
     unsafe fn alloc(&self, _layout: Layout) -> *mut u8 {
         return BuddyAllocator::allocate(_layout.size())
     }
@@ -37,20 +23,20 @@ unsafe impl GlobalAlloc for Buddy {
 }
 
 #[global_allocator]
-static GLOBAL_ALLOCATOR : Buddy = Buddy;
+static GLOBAL_ALLOCATOR : Dummy = Dummy;
 
 /* Call this function to initialize the fucking buddy system. */
-pub unsafe fn init_buddy(mem_end : usize)  {
+pub unsafe fn init_alloc(mem_end : usize)  {
     extern "C" { fn ekernel(); }
-
+    assert!((ekernel as usize) <= ALLOC, "Invalid setting");
+    
     let mut rank = 12;
-    let pool = align_huge_page(ekernel as usize);
-    let diff = mem_end - pool;
+    let diff = mem_end - (BASE as usize);
 
     while (1 << rank) <= diff { rank += 1; }
     rank -= 1 + PAGE_BITS;
 
-    BuddyAllocator::first_init(pool as _, rank);
+    BuddyAllocator::first_init(rank);
 
     uart_println!("Allocator initialized! {} MiB in all!",
         (PAGE_SIZE << rank) >> 20);
@@ -58,12 +44,6 @@ pub unsafe fn init_buddy(mem_end : usize)  {
     BuddyAllocator::debug();
 
     print_separator();
-}
-
-
-#[inline(always)]
-fn align_huge_page(num : usize) -> usize {
-    return (num + HUGE_SIZE - 1) / HUGE_SIZE * HUGE_SIZE;
 }
 
 unsafe fn play() {
