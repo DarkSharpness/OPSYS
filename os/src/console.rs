@@ -72,6 +72,34 @@ macro_rules! message_inline {
     }
 }
 
+#[macro_export]
+macro_rules! testing {
+    ($fmt: literal $(, $($arg: tt)+)?) => {
+        $crate::uart_println!("\x1b[31m[TESTING]\x1b[0m: {}", format_args!($fmt $(, $($arg)+)?));
+    }
+}
+
+#[macro_export]
+macro_rules! testing_inline {
+    ($fmt: literal $(, $($arg: tt)+)?) => {
+        $crate::uart_print!("\x1b[31m[TESTING]\x1b[0m: {}", format_args!($fmt $(, $($arg)+)?));
+    }
+}
+
+#[macro_export]
+macro_rules! custom {
+    ($title: literal, $fmt: literal $(, $($arg: tt)+)?) => {
+        $crate::uart_println!("\x1b[36m[{}]\x1b[0m: {}", $title, format_args!($fmt $(, $($arg)+)?));
+    }
+}
+
+#[macro_export]
+macro_rules! custom_inline {
+    ($title: literal, $fmt: literal $(, $($arg: tt)+)?) => {
+        $crate::uart_print!("\x1b[36m[{}]\x1b[0m: {}", $title, format_args!($fmt $(, $($arg)+)?));
+    }
+}
+
 #[inline(always)]
 pub fn print_separator() {
     uart_println!("----------------------------------------");
