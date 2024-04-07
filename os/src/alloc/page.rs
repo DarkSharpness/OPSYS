@@ -1,4 +1,38 @@
-use crate::{console::print_separator, logging, message};
+/**
+ * Page table settings.
+ * 
+ *  We use huge page, middle page and normal page to manage the memory.
+ * 
+ * -------------------------------------------------------------------
+ * 
+ * [0x00000000, 0x80000000): MMIO.
+ * We use just 2 huge pages to manage them.
+ * 
+ * -------------------------------------------------------------------
+ * 
+ * [0x80000000, ekernel): Kernel code part.
+ * We use detailed normal page to manage them.
+ * For example, the rodata part is read only, while the text part is
+ * execute only.
+ * It will takes no more than 1 leaf page table.
+ * 
+ * -------------------------------------------------------------------
+ * 
+ * [ekernel, 0x80200000): Padding. (unused, so unmaped)
+ * It is in the same leaf page table as kernel code, so we choose
+ * to set those entries as invalid.
+ * 
+ * -------------------------------------------------------------------
+ * 
+ * [0x80200000, mem_end): Kernel memory management.
+ * This part should take no more than 1 middle page table.
+ * We do not use leaf page table since that's too costly.
+ * We set their entries as read/write only.
+ * 
+ * -------------------------------------------------------------------
+ */
+
+use crate::{console::print_separator, driver::get_mem_end, logging, message};
 
 use super::{constant::*, frame::FrameAllocator};
 
@@ -8,6 +42,11 @@ pub struct PageAddress(pub u64);
 pub struct PageTableEntry(u64);
 #[derive(Clone, Copy)]
 pub struct PTEFlag(u64);
+
+unsafe fn get_kernel_page_num(x : usize) -> usize {
+    extern "C" { fn skernel(); }
+    return (x - skernel as usize) / PAGE_SIZE;
+}
 
 unsafe fn set_huge(mut page : PageAddress, i : usize, flag : PTEFlag) {
     page[i].set_entry(PageAddress::new_huge(i as _), flag);
@@ -27,7 +66,9 @@ pub unsafe fn init_huge_page() {
     let mut root = PAGE_TABLE;
 
     // Reset as invalid.
-    for i in 3..256 { set_huge(root, i, PageTableEntry::INVALID); }
+    for i in 3..256 {
+        set_huge(root, i, PageTableEntry::INVALID);
+    }
 
     // Set MMIO as read/write only.
     set_huge(root, 0, PageTableEntry::RW);
@@ -45,17 +86,20 @@ pub unsafe fn init_huge_page() {
     page[0].set_entry(leaf, PageTableEntry::NEXT);
     init_kernel_page(leaf);
 
+    let mem_end = get_kernel_page_num(get_mem_end()) >> 9;
+
     // Set the kernel memory as read/write only.
-    for i in 1..256 { set_medium(page, 2, i, PageTableEntry::RW); }
+    for i in 1..mem_end {
+        set_medium(page, 2, i, PageTableEntry::RW);
+    }
+    for i in mem_end..512 {
+        set_medium(page, 2, i, PageTableEntry::INVALID);
+    }
 
     logging!("Page table initialized.");
     print_separator();
 }
 
-unsafe fn get_kernel_page_num(x : usize) -> usize {
-    extern "C" { fn skernel(); }
-    return (x - skernel as usize) / PAGE_SIZE;
-}
 
 unsafe fn init_kernel_page(leaf : PageAddress) {
     extern "C" {
@@ -123,16 +167,15 @@ impl PTEFlag {
 }
 
 impl PageTableEntry {
-    // Invalid page table entry.
-    const INVALID   : PTEFlag = PTEFlag(0);
-
-    // Normal page table entry setting.
-    const X     : PTEFlag = PTEFlag(PTEFlag::VALID | PTEFlag::EXECUTE);
-    const R     : PTEFlag = PTEFlag(PTEFlag::VALID | PTEFlag::READ);
-    const RW    : PTEFlag = PTEFlag(PTEFlag::VALID | PTEFlag::READ | PTEFlag::WRITE);
-    const RX    : PTEFlag = PTEFlag(PTEFlag::VALID | PTEFlag::READ | PTEFlag::EXECUTE);
-    const RWX   : PTEFlag = PTEFlag(PTEFlag::VALID | PTEFlag::READ | PTEFlag::WRITE | PTEFlag::EXECUTE);
-    const NEXT  : PTEFlag = PTEFlag(PTEFlag::VALID);
+    // Invalid page table entry flag.
+    pub const INVALID   : PTEFlag = PTEFlag(0);
+    // Normal page table entry settings.
+    pub const X     : PTEFlag = PTEFlag(PTEFlag::VALID | PTEFlag::EXECUTE);
+    pub const R     : PTEFlag = PTEFlag(PTEFlag::VALID | PTEFlag::READ);
+    pub const RW    : PTEFlag = PTEFlag(PTEFlag::VALID | PTEFlag::READ | PTEFlag::WRITE);
+    pub const RX    : PTEFlag = PTEFlag(PTEFlag::VALID | PTEFlag::READ | PTEFlag::EXECUTE);
+    pub const RWX   : PTEFlag = PTEFlag(PTEFlag::VALID | PTEFlag::READ | PTEFlag::WRITE | PTEFlag::EXECUTE);
+    pub const NEXT  : PTEFlag = PTEFlag(PTEFlag::VALID);
 
     pub fn set_entry(&mut self, addr : PageAddress, flag : PTEFlag) {
         self.0 = (addr.bits()) << 10 | flag.bits();
