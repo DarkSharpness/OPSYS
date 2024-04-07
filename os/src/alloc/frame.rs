@@ -1,4 +1,4 @@
-use crate::{console::print_separator, normal, warning};
+use crate::{console::print_separator, warning};
 
 use super::constant::*;
 pub struct FrameAllocator;
@@ -45,7 +45,7 @@ impl FrameAllocator {
         let cnt = FrameAllocator::size();
         warning!("Available frame page count: {}", cnt);
         if cnt != 0 {
-            normal!("- Last page: {}", FRAME_START.offset(cnt as _).read());
+            warning!("- Last page: {}", FRAME_START.offset(cnt as _).read());
         }
         print_separator();
     }

@@ -41,6 +41,9 @@ pub unsafe fn init() {
 
     logging!("Done!");
     logging!("Kernel is running on supervisor mode...");
+    
+    alloc::demo();
+    // alloc::display();
 }
 
 
@@ -98,7 +101,7 @@ unsafe fn init_page() {
     pmpcfg0::write(0xf);
     // Start using page table
     arch::asm!("sfence.vma");
-    satp::set(satp::Mode::Sv39, 0, alloc::PAGE_TABLE as usize >> 12);
+    satp::set(satp::Mode::Sv39, 0, alloc::PAGE_TABLE.bits() as _);
     arch::asm!("sfence.vma");
 }
 

@@ -12,7 +12,7 @@ use buddy::BuddyAllocator;
 use alloc::vec::Vec;
 
 
-use crate::{alloc::frame::FrameAllocator, logging};
+use crate::{alloc::frame::FrameAllocator, console::print_separator, driver::get_mem_end, logging, normal, warning};
 extern crate alloc;
 
 struct Dummy;
@@ -43,29 +43,42 @@ pub unsafe fn init_alloc(mem_end : usize)  {
     init_buddy(rank);
     init_frame();
     page::init_huge_page();
-    play();
 }
 
-unsafe fn play() {
+/** A demo play function after the initialization. */
+pub unsafe fn demo() {
     let p1 = BuddyAllocator::allocate(1);
     let mut t : Vec<[i32; PAGE_SIZE * PAGE_BITS]> = Vec::new();
     t.reserve(2);
 
     BuddyAllocator::debug();
 
-    let p2 = BuddyAllocator::allocate(1);
+    // let p2 = BuddyAllocator::allocate(1);
 
-    BuddyAllocator::debug();
+    // BuddyAllocator::debug();
 
     BuddyAllocator::deallocate(p1, 1);
 
+    // BuddyAllocator::debug();
+
+    // BuddyAllocator::deallocate(p2, 1);
+
+    drop(t);
+    
     BuddyAllocator::debug();
+    
+    // t.reserve(1 << 10); // This function will panic
 
-    BuddyAllocator::deallocate(p2, 1);
+    sanity_check();
 
+    warning!("End of allocator demo!");
+
+    print_separator();
+}
+
+pub unsafe fn display() {
+    FrameAllocator::debug();
     BuddyAllocator::debug();
-
-    t.reserve(1 << 10);
 }
 
 unsafe fn init_frame() {
@@ -78,4 +91,21 @@ unsafe fn init_buddy(rank : usize) {
     BuddyAllocator::first_init(rank);
     logging!("Buddy allocator initialized! {} MiB in all!", (PAGE_SIZE << rank) >> 20);
     BuddyAllocator::debug();
+}
+
+// Running a boring sanity check to see if the memory can be accessed.
+unsafe fn sanity_check() {
+    let mut x = MEMORY_START as *mut u64;
+    let     y = get_mem_end() as *mut u64;
+    let   bias = 4096 / 8;
+    warning!("Sanity check started!
+        Begin of memory management = {:p} 
+        End   of memory management = {:p}", x, y);
+
+    let mut sum = 0;
+    while x != y {
+        sum += x.read_volatile();
+        x = x.offset(bias);
+    }
+    normal!("Sanity check passed! Sum = {}", sum);
 }
