@@ -1,33 +1,48 @@
 /**
- * Memory frame:
+ * Physical memory frame:
  * -----------------------------------
- *  Alloc = 0x80200000
- * 
- * Alloc - 2 page:
- *  Page table here.
- *  The reason why it took 2 rather than 1 page is that
- *  loading immediate value 0x801FF000 requires one more
- *  instruction than 0x801FE000.
+ * Alloc = 0x80200000
  * 
  * Alloc + 0 page:
  *  Buddy allocator free list here.
  * 
- * Alloc + sizeof(free_list):
- *  Frame allocator list head here.
- * 
  * Alloc + 2 page:
+ *  Kernel page table here.
+ *  The reason why it is aligned by 2 page is that
+ *  8KB aligned immediate can be loaded in 2 instructions,
+ *  while 4KB aligned immediate needs 3 instructions.
+ * 
+ * Alloc + 4 page:
  *  Buddy allocator bitmap here.
  * 
  * Alloc + 8 page:
  *  Frame allocator data here.
- * 
- * -----------------------------------
- * 
- *  Base = Alloc + 0x00200000
+ *
+ *  -----------------------------------
+ * Base = Alloc + 0x00200000
  *       = 0x80400000
  *
  * Base + 0 page:
  *  Buddy allocator base address here.
+ * 
+ * -----------------------------------
+ * Summary:
+ * 
+ * Allocator only needs R/W permission!
+ * 
+ * Frame allocator:
+ *  [0x80208000, 0x80400000)
+ * 
+ * Buddy allocator:
+ *  [0x80200000, 0x80202000) free list
+ *  [0x80204000, 0x80206000) bitmap
+ *  [0x80400000, end of mem) base address
+ * 
+ * Page table:
+ *  [0x80202000, 0x80204000)
+ * 
+ * Allocator begin at 0x80200000.
+ *  [0x80200000, end of mem) 
  * 
  * -----------------------------------
  */
@@ -52,7 +67,7 @@ pub const ALLOC  :  usize       = 0x80200000;
 // Buddy allocator rank list address
 pub const RKLIST : *mut List    = ALLOC as _;
 // Buddy allocator bitmap address
-pub const BITMAP : *mut u8      = ALLOC.wrapping_add(2 * PAGE_SIZE) as _;
+pub const BITMAP : *mut u8      = (ALLOC + 4 * PAGE_SIZE) as _;
 
 // The word that the bitmap takes.
 pub const MAP_SIZE  : usize = (2 << MAX_RANK) / WORD_BITS;
@@ -65,7 +80,7 @@ pub const FRAME_START   : *mut u16  =
     (ALLOC + align_as(PAGE_SIZE + MAP_SIZE * WORD_BITS / 8, 8 * PAGE_SIZE)) as _;
 
 // The page table physical address.
-pub const PAGE_TABLE : usize = ALLOC - PAGE_SIZE * 2;
+pub const PAGE_TABLE : *mut u64 = (ALLOC + PAGE_SIZE * 2) as _;
 
 // The lowest memory reserved for memory management.
-pub const MEMORY_START : usize = PAGE_TABLE;
+pub const MEMORY_START : usize = ALLOC;

@@ -14,7 +14,11 @@ unsafe fn set_huge(x : u64, y : u64, flag : u64) {
 // Initialize the huge page table.
 pub unsafe fn init_huge_page() {
     // EXECUTE, WRITE, READ, VALID
-    set_huge(  0  ,  2  , 0b0111 );
-    set_huge(  2  , 256 , 0b1111 );
-    set_huge( 256 , 512 , 0b0000 );
+    set_huge(  0  , 256 , 0b0000 ); // Reset to invalid first.
+    set_huge(  0  ,  2  , 0b0111 ); // MMIO part.
+    set_huge(  2  ,  4  , 0b1111 ); // Kernel part.
+
+    // Kernel part should be separated.
+
+
 }
