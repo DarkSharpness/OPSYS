@@ -1,3 +1,5 @@
+use super::page::PageAddress;
+
 /**
  * Physical memory frame:
  * -----------------------------------
@@ -80,7 +82,7 @@ pub const FRAME_START   : *mut u16  =
     (ALLOC + align_as(PAGE_SIZE + MAP_SIZE * WORD_BITS / 8, 8 * PAGE_SIZE)) as _;
 
 // The page table physical address.
-pub const PAGE_TABLE : *mut u64 = (ALLOC + PAGE_SIZE * 2) as _;
+pub const PAGE_TABLE : PageAddress = PageAddress::new_u64((ALLOC + PAGE_SIZE * 2) as _);
 
 // The lowest memory reserved for memory management.
 pub const MEMORY_START : usize = ALLOC;
