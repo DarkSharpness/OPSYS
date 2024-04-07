@@ -4,6 +4,10 @@
  *  Alloc = 0x80200000
  * 
  * Alloc - 2 page:
+ *  Page table here.
+ *  The reason why it took 2 rather than 1 page is that
+ *  loading immediate value 0x801FF000 requires one more
+ *  instruction than 0x801FE000.
  * 
  * Alloc + 0 page:
  *  Buddy allocator free list here.
