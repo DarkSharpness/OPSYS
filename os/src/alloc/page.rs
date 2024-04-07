@@ -1,3 +1,5 @@
+use crate::message;
+
 use super::{constant::*, frame::FrameAllocator};
 
 #[derive(Clone, Copy)]
@@ -15,27 +17,90 @@ unsafe fn set_medium(mut page : PageAddress, i : usize, j : usize, flag : PTEFla
     page[j].set_entry(PageAddress::new_medium(i as _, j as _), flag);
 }
 
+unsafe fn set_normal(mut page : PageAddress, i : usize, j : usize, k : usize, flag : PTEFlag) {
+    page[k].set_entry(PageAddress::new_normal(i as _, j as _, k as _), flag);
+}
+
 // Initialize the huge page table.
-#[allow(const_item_mutation)]
 pub unsafe fn init_huge_page() {
+    let mut root = PAGE_TABLE;
+
     // Reset as invalid.
-    for i in 3..256 { set_huge(PAGE_TABLE, i, PageTableEntry::INVALID); }
+    for i in 3..256 { set_huge(root, i, PageTableEntry::INVALID); }
 
     // Set MMIO as read/write only.
-    set_huge(PAGE_TABLE, 0, PageTableEntry::RW);
-    set_huge(PAGE_TABLE, 1, PageTableEntry::RW);
+    set_huge(root, 0, PageTableEntry::RW);
+    set_huge(root, 1, PageTableEntry::RW);
 
     // Kernel part below.
     // Set kernel part using middle size page.
 
-    let page = PageAddress::new_ptr(FrameAllocator::allocate_page());
-    PAGE_TABLE[2].set_entry(page, PageTableEntry::NXT);
+    // Set the second level page table.
+    let mut page = PageAddress::new_ptr(FrameAllocator::allocate_page());
+    root[2].set_entry(page, PageTableEntry::NEXT);
 
     // Set the kernel code in details.
-    set_medium(page, 2, 0, PageTableEntry::RWX);
+    let leaf = PageAddress::new_ptr(FrameAllocator::allocate_page());
+    page[0].set_entry(leaf, PageTableEntry::NEXT);
+    init_kernel_page(leaf);
+
     // Set the kernel memory as read/write only.
     for i in 1..256 { set_medium(page, 2, i, PageTableEntry::RW); }
 }
+
+unsafe fn get_kernel_page_num(x : usize) -> usize {
+    extern "C" { fn skernel(); }
+    return (x - skernel as usize) / PAGE_SIZE;
+}
+
+unsafe fn init_kernel_page(leaf : PageAddress) {
+    extern "C" {
+        fn stext();
+        fn etext();
+        fn srodata();
+        fn erodata();
+        fn sdata();
+        fn edata();
+        fn sbss_real(); // This is because kernel stack is below sbss, but still in bss.
+        fn ebss();
+        fn ekernel();
+    }
+
+    let text_start  = get_kernel_page_num(stext as usize);
+    let text_finish = get_kernel_page_num(etext as usize);
+    for i in text_start..text_finish {
+        set_normal(leaf, 2, 0, i, PageTableEntry::RX);
+    }
+    message!("text_start: {}, text_finish: {}", text_start, text_finish);
+
+    let rodata_start  = get_kernel_page_num(srodata as usize);
+    let rodata_finish = get_kernel_page_num(erodata as usize);
+    for i in rodata_start..rodata_finish {
+        set_normal(leaf, 2, 0, i, PageTableEntry::RW);
+    }
+    message!("rodata_start: {}, rodata_finish: {}", rodata_start, rodata_finish);
+
+    let data_start  = get_kernel_page_num(sdata as usize);
+    let data_finish = get_kernel_page_num(edata as usize);
+    for i in data_start..data_finish {
+        set_normal(leaf, 2, 0, i, PageTableEntry::RW);
+    }
+    message!("data_start: {}, data_finish: {}", data_start, data_finish);
+
+    let bss_start  = get_kernel_page_num(sbss_real as usize);
+    let bss_finish = get_kernel_page_num(ebss as usize);
+    for i in bss_start..bss_finish {
+        set_normal(leaf, 2, 0, i, PageTableEntry::RW);
+    }
+    message!("bss_start: {}, bss_finish: {}", bss_start, bss_finish);
+
+    let finish = get_kernel_page_num(ekernel as usize);
+    for i in finish..512 {
+        set_normal(leaf, 2, 0, i, PageTableEntry::INVALID);
+    }
+    message!("Kernel page finish at {}", finish);
+} 
+
 
 /* Implementation part below. */
 
@@ -58,12 +123,13 @@ impl PageTableEntry {
     const INVALID   : PTEFlag = PTEFlag(0);
 
     // Normal page table entry setting.
-    const EX    : PTEFlag = PTEFlag(PTEFlag::EXECUTE | PTEFlag::VALID);
-    const RW    : PTEFlag = PTEFlag(PTEFlag::READ | PTEFlag::WRITE | PTEFlag::VALID);
-    const RX    : PTEFlag = PTEFlag(PTEFlag::READ | PTEFlag::EXECUTE | PTEFlag::VALID);
-    const RWX   : PTEFlag = PTEFlag(PTEFlag::READ | PTEFlag::WRITE | PTEFlag::EXECUTE | PTEFlag::VALID);
-    const NXT   : PTEFlag = PTEFlag(PTEFlag::VALID);
-    
+    const X     : PTEFlag = PTEFlag(PTEFlag::VALID | PTEFlag::EXECUTE);
+    const R     : PTEFlag = PTEFlag(PTEFlag::VALID | PTEFlag::READ);
+    const RW    : PTEFlag = PTEFlag(PTEFlag::VALID | PTEFlag::READ | PTEFlag::WRITE);
+    const RX    : PTEFlag = PTEFlag(PTEFlag::VALID | PTEFlag::READ | PTEFlag::EXECUTE);
+    const RWX   : PTEFlag = PTEFlag(PTEFlag::VALID | PTEFlag::READ | PTEFlag::WRITE | PTEFlag::EXECUTE);
+    const NEXT  : PTEFlag = PTEFlag(PTEFlag::VALID);
+
     pub fn set_entry(&mut self, addr : PageAddress, flag : PTEFlag) {
         self.0 = (addr.bits()) << 10 | flag.bits();
     }
