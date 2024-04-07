@@ -1,4 +1,4 @@
-use crate::message;
+use crate::{console::print_separator, logging, message};
 
 use super::{constant::*, frame::FrameAllocator};
 
@@ -23,6 +23,7 @@ unsafe fn set_normal(mut page : PageAddress, i : usize, j : usize, k : usize, fl
 
 // Initialize the huge page table.
 pub unsafe fn init_huge_page() {
+    logging!("Initialize the page table.");
     let mut root = PAGE_TABLE;
 
     // Reset as invalid.
@@ -46,6 +47,9 @@ pub unsafe fn init_huge_page() {
 
     // Set the kernel memory as read/write only.
     for i in 1..256 { set_medium(page, 2, i, PageTableEntry::RW); }
+
+    logging!("Page table initialized.");
+    print_separator();
 }
 
 unsafe fn get_kernel_page_num(x : usize) -> usize {
@@ -69,14 +73,14 @@ unsafe fn init_kernel_page(leaf : PageAddress) {
     let text_start  = get_kernel_page_num(stext as usize);
     let text_finish = get_kernel_page_num(etext as usize);
     for i in text_start..text_finish {
-        set_normal(leaf, 2, 0, i, PageTableEntry::RX);
+        set_normal(leaf, 2, 0, i, PageTableEntry::X);
     }
     message!("text_start: {}, text_finish: {}", text_start, text_finish);
 
     let rodata_start  = get_kernel_page_num(srodata as usize);
     let rodata_finish = get_kernel_page_num(erodata as usize);
     for i in rodata_start..rodata_finish {
-        set_normal(leaf, 2, 0, i, PageTableEntry::RW);
+        set_normal(leaf, 2, 0, i, PageTableEntry::R);
     }
     message!("rodata_start: {}, rodata_finish: {}", rodata_start, rodata_finish);
 
