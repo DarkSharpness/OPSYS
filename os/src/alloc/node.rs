@@ -1,4 +1,4 @@
-use crate::uart_print;
+use crate::{normal_inline, uart_print};
 
 use super::PAGE_SIZE;
 
@@ -64,10 +64,9 @@ impl List {
             let node = next as *const u8;
             let offset = (node.offset_from(base) / PAGE_SIZE as isize) as usize;
             if rcnt == 0 {
-                uart_print!("  ");
-                uart_print!("- [{},{}) ", offset, offset + len);
+                normal_inline!("  - [{},{}) ", offset, offset + len);
             } else {
-                uart_print!(", [{},{}) ", offset, offset + len);
+                uart_print!("\0, [{},{}) ", offset, offset + len);
             }
             rcnt += 1;
             next = (*next).next;

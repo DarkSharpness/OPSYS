@@ -1,5 +1,5 @@
 
-use crate::{alloc::node::*, uart_println};
+use crate::{alloc::node::*, console::print_separator, normal, warning};
 
 use super::constant::*;
 pub struct BuddyAllocator;
@@ -143,12 +143,13 @@ impl BuddyAllocator {
     }
 
     pub unsafe fn debug() {
-        uart_println!("Base address: {:p}", BUDDY_START);
+        warning!("Base address: {:p}", BUDDY_START);
         for i in 0..MAX_RANK {
             let list = rklist(i);
-            uart_println!("  Rank {}: ", i);
+            normal!("  Rank {}: ", i);
             (*list).debug(i, BUDDY_START);
         }
-        uart_println!("End of debug.");
+        warning!("End of buddy debug!");
+        print_separator();
     }
 }

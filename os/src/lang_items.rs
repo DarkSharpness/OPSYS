@@ -6,13 +6,14 @@ use core::panic::PanicInfo;
 fn panic(info: &PanicInfo) -> ! {
     if let Some(location) = info.location() {
         println!(
-            "Panicked at {}:{} {}",
+            "\x1b[1;31mPanicked at {}:{} {}\x1b[0m",
             location.file(),
             location.line(),
             info.message().unwrap()
         );
     } else {
-        println!("Panicked: {}", info.message().unwrap());
+        println!("\x1b[1;31mPanicked: {:?}\x1b[0m",
+            info.message().unwrap());
     }
     unsafe { driver::shutdown() }
     loop {}

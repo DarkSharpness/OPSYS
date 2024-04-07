@@ -1,7 +1,7 @@
 use core::{arch, mem::size_of};
 use riscv::register::*;
 use crate::driver::get_mem_end;
-use crate::{uart_print, uart_println};
+use crate::logging;
 use crate::uart::init as init_uart;
 use crate::layout::{clint, NCPU};
 use crate::alloc;
@@ -24,7 +24,7 @@ pub unsafe fn init() {
         alloc::init_alloc(get_mem_end());
     }
 
-    uart_print!("Dropping to supervisor mode... ");
+    logging!("Dropping to supervisor mode... ");
 
     // Set the return mode to supervisor mode
     init_mode();
@@ -39,8 +39,8 @@ pub unsafe fn init() {
     drop_mode();
     // Code below is running in supervisor mode
 
-    uart_println!("Done!");
-    uart_println!("Kernel is running on supervisor mode...");
+    logging!("Done!");
+    logging!("Kernel is running on supervisor mode...");
 }
 
 
@@ -98,7 +98,7 @@ unsafe fn init_page() {
     pmpcfg0::write(0xf);
     // Start using page table
     arch::asm!("sfence.vma");
-    satp::set(satp::Mode::Sv39, 0, alloc::PAGE_TABLE >> 12);
+    satp::set(satp::Mode::Sv39, 0, alloc::PAGE_TABLE as usize >> 12);
     arch::asm!("sfence.vma");
 }
 

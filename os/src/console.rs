@@ -29,3 +29,51 @@ macro_rules! uart_println {
         $crate::console::print(format_args!(concat!($fmt, "\n") $(, $($arg)+)?));
     }
 }
+
+#[macro_export]
+macro_rules! warning {
+    ($fmt: literal $(, $($arg: tt)+)?) => {
+        $crate::uart_println!("\x1b[33m[WARNING]\x1b[0m: {}", format_args!($fmt $(, $($arg)+)?));
+    }
+}
+
+#[macro_export]
+macro_rules! warning_inline {
+    ($fmt: literal $(, $($arg: tt)+)?) => {
+        $crate::uart_print!("\x1b[33m[WARNING]\x1b[0m: {}", format_args!($fmt $(, $($arg)+)?));
+    }
+}
+
+#[macro_export]
+macro_rules! logging {
+    ($fmt: literal $(, $($arg: tt)+)?) => {
+        $crate::uart_println!("\x1b[32m[LOGGING]\x1b[0m: {}", format_args!($fmt $(, $($arg)+)?));
+    }
+}
+
+#[macro_export]
+macro_rules! logging_inline {
+    ($fmt: literal $(, $($arg: tt)+)?) => {
+        $crate::uart_print!("\x1b[32m[LOGGING]\x1b[0m: {}", format_args!($fmt $(, $($arg)+)?));
+    }
+}
+
+#[macro_export]
+macro_rules! normal {
+    ($fmt: literal $(, $($arg: tt)+)?) => {
+        $crate::uart_println!("\x1b[35m[MESSAGE]\x1b[0m: {}", format_args!($fmt $(, $($arg)+)?));
+    }
+}
+
+#[macro_export]
+macro_rules! normal_inline {
+    ($fmt: literal $(, $($arg: tt)+)?) => {
+        $crate::uart_print!("\x1b[35m[MESSAGE]\x1b[0m: {}", format_args!($fmt $(, $($arg)+)?));
+    }
+}
+
+#[inline(always)]
+pub fn print_separator() {
+    uart_println!("----------------------------------------");
+}
+

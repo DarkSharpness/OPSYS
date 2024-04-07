@@ -10,7 +10,6 @@ mod trap;
 mod play;
 mod layout;
 mod alloc;
-mod debug;
 
 use core::arch::{asm, global_asm};
 

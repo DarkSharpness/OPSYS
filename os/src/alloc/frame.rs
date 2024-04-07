@@ -1,4 +1,4 @@
-use crate::uart_println;
+use crate::{console::print_separator, normal, warning};
 
 use super::constant::*;
 pub struct FrameAllocator;
@@ -43,9 +43,10 @@ impl FrameAllocator {
 
     pub unsafe fn debug() {
         let cnt = FrameAllocator::size();
-        uart_println!("Available page count: {}", cnt);
+        warning!("Available frame page count: {}", cnt);
         if cnt != 0 {
-            uart_println!("- Last page: {}", FRAME_START.offset(cnt as _).read());
+            normal!("- Last page: {}", FRAME_START.offset(cnt as _).read());
         }
+        print_separator();
     }
 }

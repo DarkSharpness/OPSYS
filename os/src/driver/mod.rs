@@ -1,6 +1,6 @@
 use core::arch;
 
-use crate::uart_println;
+use crate::logging;
 
 pub mod uart;
 pub mod start;
@@ -25,7 +25,7 @@ pub fn get_mem_end() -> usize {
 #[no_mangle]
 #[inline(never)]
 pub unsafe fn shutdown() {
-    uart_println!("Shutting down the machine...");
+    logging!("Shutting down the machine...");
     let pos = 0x100000 as * mut u32;
     pos.write_volatile(0x5555);
 }

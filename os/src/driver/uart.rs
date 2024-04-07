@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::{debug::print_separator, uart_println};
+use crate::{console::print_separator, uart_println};
 
 type Uptr = * mut u8;
 const UART : Uptr = 0x1000_0000 as Uptr; // 1 << (7 * 4)

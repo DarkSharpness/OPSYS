@@ -12,7 +12,7 @@ use buddy::BuddyAllocator;
 use alloc::vec::Vec;
 
 
-use crate::{alloc::frame::FrameAllocator, debug::print_separator, uart_println};
+use crate::{alloc::frame::FrameAllocator, logging};
 extern crate alloc;
 
 struct Dummy;
@@ -43,6 +43,7 @@ pub unsafe fn init_alloc(mem_end : usize)  {
     init_buddy(rank);
     init_frame();
     page::init_huge_page();
+    play();
 }
 
 unsafe fn play() {
@@ -63,18 +64,18 @@ unsafe fn play() {
     BuddyAllocator::deallocate(p2, 1);
 
     BuddyAllocator::debug();
+
+    t.reserve(1 << 10);
 }
 
 unsafe fn init_frame() {
     FrameAllocator::first_init();
-    uart_println!("Frame allocator initialized! {} Pages available!", FrameAllocator::size());
+    logging!("Frame allocator initialized! {} Pages available!", FrameAllocator::size());
     FrameAllocator::debug();
-    print_separator();
 }
 
 unsafe fn init_buddy(rank : usize) {
     BuddyAllocator::first_init(rank);
-    uart_println!("Buddy allocator initialized! {} MiB in all!", (PAGE_SIZE << rank) >> 20);
+    logging!("Buddy allocator initialized! {} MiB in all!", (PAGE_SIZE << rank) >> 20);
     BuddyAllocator::debug();
-    print_separator();
 }
