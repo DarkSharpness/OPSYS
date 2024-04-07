@@ -12,7 +12,7 @@ use buddy::BuddyAllocator;
 use alloc::vec::Vec;
 
 
-use crate::{alloc::frame::FrameAllocator, console::print_separator, driver::get_mem_end, logging, normal, warning};
+use crate::{alloc::frame::FrameAllocator, console::print_separator, driver::get_mem_end, logging, message, warning};
 extern crate alloc;
 
 struct Dummy;
@@ -107,5 +107,5 @@ unsafe fn sanity_check() {
         sum += x.read_volatile();
         x = x.offset(bias);
     }
-    normal!("Sanity check passed! Sum = {}", sum);
+    message!("Sanity check passed! Sum = {}", sum);
 }

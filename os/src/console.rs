@@ -59,14 +59,14 @@ macro_rules! logging_inline {
 }
 
 #[macro_export]
-macro_rules! normal {
+macro_rules! message {
     ($fmt: literal $(, $($arg: tt)+)?) => {
         $crate::uart_println!("\x1b[35m[MESSAGE]\x1b[0m: {}", format_args!($fmt $(, $($arg)+)?));
     }
 }
 
 #[macro_export]
-macro_rules! normal_inline {
+macro_rules! message_inline {
     ($fmt: literal $(, $($arg: tt)+)?) => {
         $crate::uart_print!("\x1b[35m[MESSAGE]\x1b[0m: {}", format_args!($fmt $(, $($arg)+)?));
     }

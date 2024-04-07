@@ -1,5 +1,5 @@
 
-use crate::{alloc::node::*, console::print_separator, normal, warning};
+use crate::{alloc::node::*, console::print_separator, message, warning};
 
 use super::constant::*;
 pub struct BuddyAllocator;
@@ -146,7 +146,7 @@ impl BuddyAllocator {
         warning!("Base address: {:p}", BUDDY_START);
         for i in 0..MAX_RANK {
             let list = rklist(i);
-            normal!("  Rank {}: ", i);
+            message!("  Rank {}: ", i);
             (*list).debug(i, BUDDY_START);
         }
         warning!("End of buddy debug!");
