@@ -1,7 +1,7 @@
 use core::{arch, mem::size_of};
 use riscv::register::*;
 use crate::driver::get_mem_end;
-use crate::logging;
+use crate::{logging, logging_inline, uart_println};
 use crate::uart::init as init_uart;
 use crate::layout::{clint, NCPU};
 use crate::alloc;
@@ -24,7 +24,7 @@ pub unsafe fn init() {
         alloc::init_alloc(get_mem_end());
     }
 
-    logging!("Dropping to supervisor mode... ");
+    logging_inline!("Dropping to supervisor mode...");
 
     // Set the return mode to supervisor mode
     init_mode();
@@ -35,14 +35,15 @@ pub unsafe fn init() {
     // Set the timer
     init_timer();
 
+
     // Code above is running in machine mode
     drop_mode();
     // Code below is running in supervisor mode
 
-    logging!("Done!");
-    logging!("Kernel is running on supervisor mode...");
-    
-    alloc::demo();
+    uart_println!("Done!");
+    logging!("Kernel is running on supervisor mode.");
+
+    // alloc::demo();
     // alloc::display();
 }
 

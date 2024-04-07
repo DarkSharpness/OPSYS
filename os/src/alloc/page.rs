@@ -32,7 +32,9 @@
  * -------------------------------------------------------------------
  */
 
-use crate::{console::print_separator, driver::get_mem_end, logging, message};
+#[allow(unused_imports)]
+use crate::message;
+use crate::{console::print_separator, driver::get_mem_end, logging};
 
 use super::{constant::*, frame::FrameAllocator};
 
@@ -119,34 +121,34 @@ unsafe fn init_kernel_page(leaf : PageAddress) {
     for i in text_start..text_finish {
         set_normal(leaf, 2, 0, i, PageTableEntry::X);
     }
-    message!("text_start: {}, text_finish: {}", text_start, text_finish);
+    // message!("text_start: {}, text_finish: {}", text_start, text_finish);
 
     let rodata_start  = get_kernel_page_num(srodata as usize);
     let rodata_finish = get_kernel_page_num(erodata as usize);
     for i in rodata_start..rodata_finish {
         set_normal(leaf, 2, 0, i, PageTableEntry::R);
     }
-    message!("rodata_start: {}, rodata_finish: {}", rodata_start, rodata_finish);
+    // message!("rodata_start: {}, rodata_finish: {}", rodata_start, rodata_finish);
 
     let data_start  = get_kernel_page_num(sdata as usize);
     let data_finish = get_kernel_page_num(edata as usize);
     for i in data_start..data_finish {
         set_normal(leaf, 2, 0, i, PageTableEntry::RW);
     }
-    message!("data_start: {}, data_finish: {}", data_start, data_finish);
+    // message!("data_start: {}, data_finish: {}", data_start, data_finish);
 
     let bss_start  = get_kernel_page_num(sbss_real as usize);
     let bss_finish = get_kernel_page_num(ebss as usize);
     for i in bss_start..bss_finish {
         set_normal(leaf, 2, 0, i, PageTableEntry::RW);
     }
-    message!("bss_start: {}, bss_finish: {}", bss_start, bss_finish);
+    // message!("bss_start: {}, bss_finish: {}", bss_start, bss_finish);
 
     let finish = get_kernel_page_num(ekernel as usize);
     for i in finish..512 {
         set_normal(leaf, 2, 0, i, PageTableEntry::INVALID);
     }
-    message!("Kernel page finish at {}", finish);
+    // message!("Kernel page finish at {}", finish);
 } 
 
 

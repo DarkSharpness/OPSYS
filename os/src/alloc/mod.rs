@@ -84,13 +84,13 @@ pub unsafe fn display() {
 unsafe fn init_frame() {
     FrameAllocator::first_init();
     logging!("Frame allocator initialized! {} Pages available!", FrameAllocator::size());
-    FrameAllocator::debug();
+    // FrameAllocator::debug();
 }
 
 unsafe fn init_buddy(rank : usize) {
     BuddyAllocator::first_init(rank);
     logging!("Buddy allocator initialized! {} MiB in all!", (PAGE_SIZE << rank) >> 20);
-    BuddyAllocator::debug();
+    // BuddyAllocator::debug();
 }
 
 // Running a boring sanity check to see if the memory can be accessed.
