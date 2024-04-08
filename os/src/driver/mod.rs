@@ -1,7 +1,5 @@
 use core::arch;
 
-use crate::logging;
-
 pub mod uart;
 pub mod start;
 

@@ -1,5 +1,3 @@
-use crate::{message_inline, uart_print};
-
 use super::PAGE_SIZE;
 
 pub struct Node {

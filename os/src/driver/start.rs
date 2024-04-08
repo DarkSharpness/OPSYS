@@ -1,7 +1,6 @@
 use core::{arch, mem::size_of};
 use riscv::register::*;
 use crate::driver::get_mem_end;
-use crate::{logging, logging_inline, uart_println};
 use crate::uart::init as init_uart;
 use crate::layout::{clint, NCPU};
 use crate::alloc;
@@ -44,7 +43,7 @@ pub unsafe fn init() {
     logging!("Kernel is running on supervisor mode.");
 
     // alloc::demo();
-    // alloc::display();
+    alloc::display();
 }
 
 

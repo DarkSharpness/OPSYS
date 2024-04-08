@@ -1,5 +1,5 @@
 
-use crate::{alloc::node::*, console::print_separator, message, warning};
+use crate::{alloc::node::*, console::print_separator};
 
 use super::constant::*;
 pub struct BuddyAllocator;

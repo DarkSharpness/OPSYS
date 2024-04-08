@@ -1,4 +1,4 @@
-use crate::{console::print_separator, warning};
+use crate::console::print_separator;
 
 use super::constant::*;
 pub struct FrameAllocator;

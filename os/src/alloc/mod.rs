@@ -11,8 +11,7 @@ use core::alloc::{GlobalAlloc, Layout};
 use buddy::BuddyAllocator;
 use alloc::vec::Vec;
 
-
-use crate::{alloc::frame::FrameAllocator, console::print_separator, driver::get_mem_end, logging, message, warning};
+use crate::{alloc::frame::FrameAllocator, console::print_separator, driver::get_mem_end};
 extern crate alloc;
 
 struct Dummy;

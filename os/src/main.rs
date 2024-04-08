@@ -3,8 +3,9 @@
 #![feature(panic_info_message)]
 #![allow(dead_code)]
 
-mod lang_items;
+#[macro_use]
 mod console;
+mod lang_items;
 mod driver;
 mod trap;
 mod play;

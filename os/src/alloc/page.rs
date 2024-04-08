@@ -34,7 +34,7 @@
 
 #[allow(unused_imports)]
 use crate::message;
-use crate::{console::print_separator, driver::get_mem_end, logging};
+use crate::{console::print_separator, driver::get_mem_end};
 
 use super::{constant::*, frame::FrameAllocator};
 
