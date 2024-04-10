@@ -3,7 +3,6 @@ use crate::{driver::uart, uart_println};
 #[inline(always)]
 fn is_digit(c: i32) -> bool { c >= 48 && c <= 57 }
 
-#[inline(never)]
 pub unsafe fn play() {
     let mut val : u64 = 0;
     loop {

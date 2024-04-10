@@ -52,7 +52,6 @@ impl List {
         return head == next;
     }
 
-    #[inline(never)] #[export_name = "debug_nodelist"]
     pub unsafe fn debug(&self, rank : usize, base : *const u8) {
         let len = 1 << rank;
         let head = &self.head as *const Node;

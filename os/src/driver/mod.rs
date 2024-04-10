@@ -20,7 +20,6 @@ pub fn get_mem_end() -> usize {
     return mem_end;
 }
 
-#[no_mangle]
 #[inline(never)]
 pub unsafe fn shutdown() {
     logging!("Shutting down the machine...");

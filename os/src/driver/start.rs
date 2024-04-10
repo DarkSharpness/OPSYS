@@ -11,7 +11,6 @@ use super::get_tid;
 extern "C" { fn time_handle(); fn drop_mode(); }
 static mut TIME_SCRATCH: [[u64 ; 5]; NCPU] = [[0 ; 5]; NCPU];
 
-#[inline(never)]
 pub unsafe fn init() {
     // Clear the bss section
     init_bss();
@@ -42,14 +41,12 @@ pub unsafe fn init() {
     uart_println!("Done!");
     logging!("Kernel is running on supervisor mode.");
 
-    // alloc::demo();
+    alloc::demo();
     alloc::display();
 }
 
 
 /* Clear the bss section. */
-#[no_mangle]
-#[inline(never)]
 fn init_bss() {
     extern "C" { fn sbss(); fn ebss(); }
     // A relatively faster way to clear the bss section
@@ -64,8 +61,6 @@ fn init_bss() {
 }
 
 /* Set the return mode to supervisor mode. */
-#[no_mangle]
-#[inline(never)]
 unsafe fn init_mode() {
     mstatus::set_mpp(mstatus::MPP::Supervisor);
 }
@@ -74,8 +69,6 @@ unsafe fn init_mode() {
  * Enable all interrupts in supervisor mode.
  * Delegate interrupts and exceptions to supervisor mode.
  */
-#[no_mangle]
-#[inline(never)]
 unsafe fn init_intr() {
     let val = 0xffff;
     arch::asm!("csrw mideleg, {}", in(reg) val);
@@ -94,8 +87,6 @@ unsafe fn init_intr() {
  * 
  * Our kernel don't feat a page table.
  */
-#[no_mangle]
-#[inline(never)]
 unsafe fn init_page() {
     pmpaddr0::write(0x3fffffffffffff);
     pmpcfg0::write(0xf);
@@ -109,8 +100,6 @@ unsafe fn init_page() {
  * Set the timer interrupt.
  * Initialize the interval to about 0.1s.
  */
-#[no_mangle]
-#[inline(never)]
 unsafe fn init_timer() {
     let id = get_tid();
     let interval = 1 << 22; // About 0.1s on QEMU

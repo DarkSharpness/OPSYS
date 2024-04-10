@@ -71,15 +71,11 @@ pub unsafe fn init() {
     print_separator();
 }
 
-#[no_mangle]
-#[inline(never)]
 pub unsafe fn sync_putc(c : u8) {
     while (LSR.read_volatile() & lsr::TX_IDLE) == 0 {}
     THR.write_volatile(c);
 }
 
-#[no_mangle]
-#[inline(never)]
 pub unsafe fn sync_getc() -> i32 {
     while (LSR.read_volatile() & lsr::RX_DONE) == 0 {}
     RBR.read_volatile() as i32
@@ -89,8 +85,6 @@ pub unsafe fn sync_getc() -> i32 {
  * Get the char from UART
  * If there is no char in the buffer, return None
  */
-#[no_mangle]
-#[inline(never)]
 pub unsafe fn uart_getc() -> Option<i32> {
     if (LSR.read_volatile() & lsr::RX_DONE) == 0 {
         None
@@ -104,8 +98,6 @@ static mut BUFFER : [u8; 1024] = [0; BUFFER_SIZE];
 static mut HEAD : usize = 0;
 static mut TAIL : usize = 0;
 
-#[no_mangle]
-#[inline(never)]
 unsafe fn uart_putc(c : u8) {
     // Acquire lock?
 
@@ -127,8 +119,6 @@ unsafe fn uart_putc(c : u8) {
 /**
  * Lock holder should call uart_start() to start sending data
  */
-#[no_mangle]
-#[inline(never)]
 unsafe fn uart_start() {
     while HEAD != TAIL {
         // The buffer is full, we cannot put more data
@@ -143,7 +133,6 @@ unsafe fn uart_start() {
 }
 
 #[no_mangle]
-#[inline(never)]
 unsafe fn uart_trap() {
     loop {
         match uart_getc() {

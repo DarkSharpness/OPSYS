@@ -4,9 +4,13 @@ use crate::{alloc::node::*, console::print_separator};
 use super::constant::*;
 pub struct BuddyAllocator;
 
+#[inline(always)]
 unsafe fn get_rank(mut size : usize) -> usize {
     let mut rank = 0;
-    while PAGE_SIZE < size { size >>= 1; rank += 1; }
+    while PAGE_SIZE < size {
+        size >>= 1;
+        rank += 1;
+    }
     return rank;
 }
 
@@ -37,7 +41,7 @@ unsafe fn remove_buddy(num : usize, rank : usize) {
 unsafe fn find_first(rank : usize) -> usize{
     let mut ret = rank;
     loop {
-        if rank >= MAX_RANK { panic!("Out of memory!"); }
+        assert!(rank < MAX_RANK, "Out of memory!");
         if !(*rklist(ret)).empty() { break; }
         ret += 1;
     } return ret;
