@@ -75,11 +75,14 @@ pub const BITMAP : *mut u8      = (ALLOC + 4 * PAGE_SIZE) as _;
 pub const MAP_SIZE  : usize = (2 << MAX_RANK) / WORD_BITS;
 
 // Buddy allocator base address.
-pub const BUDDY_START   : *mut u8   = (ALLOC + 0x00200000) as _;
+pub const BUDDY_START_ADDR : usize  = ALLOC + 0x00E00000;
+pub const BUDDY_START   : *mut u8   = BUDDY_START_ADDR as _;
 
 // End of bitmap, aligned to 8 pages.
-pub const FRAME_START   : *mut u16  =
-    (ALLOC + align_as(PAGE_SIZE + MAP_SIZE * WORD_BITS / 8, 8 * PAGE_SIZE)) as _;
+// Start of the fram allocator.
+pub const FRAME_START_ADDR : usize  =
+    ALLOC + align_as(PAGE_SIZE + MAP_SIZE * WORD_BITS / 8, 8 * PAGE_SIZE);
+pub const FRAME_START   : *mut u16  = FRAME_START_ADDR as _;
 
 // The page table physical address.
 pub const PAGE_TABLE : PageAddress = PageAddress::new_u64((ALLOC + PAGE_SIZE * 2) as _);
