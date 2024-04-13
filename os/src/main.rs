@@ -8,9 +8,9 @@ mod console;
 mod lang_items;
 mod driver;
 mod trap;
-mod play;
 mod layout;
 mod alloc;
+mod proc;
 
 use core::arch::{asm, global_asm};
 
