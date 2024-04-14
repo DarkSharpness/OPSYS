@@ -17,7 +17,8 @@ gdb:
 	riscv64-unknown-elf-gdb \
 	-ex 'file $(KERNEL_BIN)' \
 	-ex 'set arch riscv:rv64' \
-	-ex 'target remote localhost:1234'
+	-ex 'target remote localhost:1234' \
+	-ex 'set riscv use-compressed-breakpoints yes' \
 
 asm:
 	rust-objdump -S target/riscv64gc-unknown-none-elf/debug/os > os.tmp 2>/dev/null
