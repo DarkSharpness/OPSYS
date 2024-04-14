@@ -68,7 +68,7 @@ pub unsafe fn init_huge_page() {
     let mut root = PAGE_TABLE;
 
     // Reset as invalid.
-    for i in 3..256 {
+    for i in 3..512 {
         set_huge(root, i, PageTableEntry::INVALID);
     }
 
@@ -119,7 +119,7 @@ unsafe fn init_kernel_page(leaf : PageAddress) {
     let text_start  = get_kernel_page_num(stext as usize);
     let text_finish = get_kernel_page_num(etext as usize);
     for i in text_start..text_finish {
-        set_normal(leaf, 2, 0, i, PageTableEntry::X);
+        set_normal(leaf, 2, 0, i, PageTableEntry::RX);
     }
     // message!("text_start: {}, text_finish: {}", text_start, text_finish);
 
