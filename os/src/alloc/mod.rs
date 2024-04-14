@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 mod node;
 mod page;
 mod buddy;
@@ -5,6 +6,9 @@ mod frame;
 mod constant;
 
 pub use constant::PAGE_TABLE;
+pub use page::vmmap;
+pub use page::PTEFlag;
+pub use page::PageAddress;
 
 use constant::*;
 use core::alloc::{GlobalAlloc, Layout};

@@ -15,6 +15,7 @@ mod proc;
 use core::arch::{asm, global_asm};
 
 use driver::get_tid;
+use proc::init_proc;
 
 use crate::driver::{start, uart};
 
@@ -25,9 +26,12 @@ unsafe fn os_main() {
     init_tid_and_end_address();
     start::init();
     if get_tid() == 0 {
+        init_proc();
         driver::shutdown();
         trap::user_trap();
     }
+
+
 }
 
 #[inline(always)]

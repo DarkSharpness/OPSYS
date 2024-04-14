@@ -33,7 +33,6 @@ pub unsafe fn init() {
     // Set the timer
     init_timer();
 
-
     // Code above is running in machine mode
     drop_mode();
     // Code below is running in supervisor mode
@@ -41,8 +40,8 @@ pub unsafe fn init() {
     uart_println!("Done!");
     logging!("Kernel is running on supervisor mode.");
 
-    alloc::demo();
-    alloc::display();
+    // alloc::demo();
+    // alloc::display();
 }
 
 
