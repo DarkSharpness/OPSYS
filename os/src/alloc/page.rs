@@ -42,7 +42,7 @@ use super::{constant::*, frame::FrameAllocator};
 pub struct PageAddress(pub u64);
 #[derive(Clone, Copy)]
 pub struct PageTableEntry(u64);
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct PTEFlag(u64);
 
 unsafe fn get_kernel_page_num(x : usize) -> usize {
@@ -62,6 +62,16 @@ unsafe fn set_normal(mut page : PageAddress, i : usize, j : usize, k : usize, fl
     page[k].set_entry(PageAddress::new_normal(i as _, j as _, k as _), flag);
 }
 
+unsafe fn alloc_page() -> PageAddress {
+    let addr = FrameAllocator::allocate_page();
+
+    /* Reset the page to zero. */
+    let temp = addr as *mut u64;
+    for i in 0..512 { *temp.wrapping_add(i) = 0; }
+
+    return PageAddress::new_ptr(addr);
+}
+
 // Initialize the huge page table.
 pub unsafe fn init_huge_page() {
     logging!("Initialize the page table.");
@@ -69,33 +79,33 @@ pub unsafe fn init_huge_page() {
 
     // Reset as invalid.
     for i in 3..512 {
-        set_huge(root, i, PageTableEntry::INVALID);
+        set_huge(root, i, PTEFlag::INVALID);
     }
 
     // Set MMIO as read/write only.
-    set_huge(root, 0, PageTableEntry::RW);
-    set_huge(root, 1, PageTableEntry::RW);
+    set_huge(root, 0, PTEFlag::RW);
+    set_huge(root, 1, PTEFlag::RW);
 
     // Kernel part below.
     // Set kernel part using middle size page.
 
     // Set the second level page table.
-    let mut page = PageAddress::new_ptr(FrameAllocator::allocate_page());
-    root[2].set_entry(page, PageTableEntry::NEXT);
+    let mut page = alloc_page();
+    root[2].set_entry(page, PTEFlag::NEXT);
 
     // Set the kernel code in details.
-    let leaf = PageAddress::new_ptr(FrameAllocator::allocate_page());
-    page[0].set_entry(leaf, PageTableEntry::NEXT);
+    let leaf = alloc_page();
+    page[0].set_entry(leaf, PTEFlag::NEXT);
     init_kernel_page(leaf);
 
     let mem_end = get_kernel_page_num(get_mem_end()) >> 9;
 
     // Set the kernel memory as read/write only.
     for i in 1..mem_end {
-        set_medium(page, 2, i, PageTableEntry::RW);
+        set_medium(page, 2, i, PTEFlag::RW);
     }
     for i in mem_end..512 {
-        set_medium(page, 2, i, PageTableEntry::INVALID);
+        set_medium(page, 2, i, PTEFlag::INVALID);
     }
 
     logging!("Page table initialized.");
@@ -119,37 +129,75 @@ unsafe fn init_kernel_page(leaf : PageAddress) {
     let text_start  = get_kernel_page_num(stext as usize);
     let text_finish = get_kernel_page_num(etext as usize);
     for i in text_start..text_finish {
-        set_normal(leaf, 2, 0, i, PageTableEntry::RX);
+        set_normal(leaf, 2, 0, i, PTEFlag::RX);
     }
     // message!("text_start: {}, text_finish: {}", text_start, text_finish);
 
     let rodata_start  = get_kernel_page_num(srodata as usize);
     let rodata_finish = get_kernel_page_num(erodata as usize);
     for i in rodata_start..rodata_finish {
-        set_normal(leaf, 2, 0, i, PageTableEntry::R);
+        set_normal(leaf, 2, 0, i, PTEFlag::R);
     }
     // message!("rodata_start: {}, rodata_finish: {}", rodata_start, rodata_finish);
 
     let data_start  = get_kernel_page_num(sdata as usize);
     let data_finish = get_kernel_page_num(edata as usize);
     for i in data_start..data_finish {
-        set_normal(leaf, 2, 0, i, PageTableEntry::RW);
+        set_normal(leaf, 2, 0, i, PTEFlag::RW);
     }
     // message!("data_start: {}, data_finish: {}", data_start, data_finish);
 
     let bss_start  = get_kernel_page_num(sbss_real as usize);
     let bss_finish = get_kernel_page_num(ebss as usize);
     for i in bss_start..bss_finish {
-        set_normal(leaf, 2, 0, i, PageTableEntry::RW);
+        set_normal(leaf, 2, 0, i, PTEFlag::RW);
     }
     // message!("bss_start: {}, bss_finish: {}", bss_start, bss_finish);
 
     let finish = get_kernel_page_num(ekernel as usize);
     for i in finish..512 {
-        set_normal(leaf, 2, 0, i, PageTableEntry::INVALID);
+        set_normal(leaf, 2, 0, i, PTEFlag::INVALID);
     }
     // message!("Kernel page finish at {}", finish);
 } 
+
+
+/**
+ * Build up a mapping from a virtual address to a physical address at given page table.
+ */
+pub unsafe fn vmmap(mut root : PageAddress, __virt : usize, __phys : usize, __flag : PTEFlag) {
+    let virt = __virt >> 12;
+    let ppn0 = (virt >> 18) & 0x1FF;
+    let ppn1 = (virt >> 9)  & 0x1FF;
+    let ppn2 = (virt >> 0)  & 0x1FF;
+
+    let page = &mut root[ppn0];
+    let (addr, flag) = page.get_entry();
+    if flag == PTEFlag::INVALID {
+        let temp = alloc_page();
+        page.set_entry(temp, PTEFlag::NEXT);
+        root = temp;
+    } else {
+        assert!(flag == PTEFlag::NEXT, "Mapping existed!");
+        root = addr;
+    }
+
+    let page = &mut root[ppn1];
+    let (addr, flag) = page.get_entry();
+    if flag == PTEFlag::INVALID {
+        let temp = alloc_page();
+        page.set_entry(temp, PTEFlag::NEXT);
+        root = temp;
+    } else {
+        assert!(flag == PTEFlag::NEXT, "Mapping existed!");
+        root = addr;
+    }
+
+    let page = &mut root[ppn2];
+    let (____, flag) = page.get_entry();
+    assert!(flag == PTEFlag::INVALID, "Mapping existed!");
+    page.set_entry(PageAddress::new_u64(__phys as _), __flag);
+}
 
 
 /* Implementation part below. */
@@ -165,10 +213,7 @@ impl PTEFlag {
     const DIRTY    : u64   = 1 << 7;
     const HUGE     : u64   = 1 << 8;
     const RESERVED : u64   = 1 << 9;
-    pub fn bits(&self) -> u64 { self.0 }
-}
-
-impl PageTableEntry {
+    
     // Invalid page table entry flag.
     pub const INVALID   : PTEFlag = PTEFlag(0);
     // Normal page table entry settings.
@@ -179,8 +224,16 @@ impl PageTableEntry {
     pub const RWX   : PTEFlag = PTEFlag(PTEFlag::VALID | PTEFlag::READ | PTEFlag::WRITE | PTEFlag::EXECUTE);
     pub const NEXT  : PTEFlag = PTEFlag(PTEFlag::VALID);
 
+    pub fn bits(&self) -> u64 { self.0 }
+}
+
+impl PageTableEntry {
+
     pub fn set_entry(&mut self, addr : PageAddress, flag : PTEFlag) {
         self.0 = (addr.bits()) << 10 | flag.bits();
+    }
+    pub fn get_entry(&self) -> (PageAddress, PTEFlag) {
+        (PageAddress::new_u64(self.0 >> 10), PTEFlag(self.0 & 0x3FF))
     }
 }
 
