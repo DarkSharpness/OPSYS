@@ -28,7 +28,10 @@ unsafe impl GlobalAlloc for Dummy {
 #[global_allocator]
 static GLOBAL_ALLOCATOR : Dummy = Dummy;
 
-/* Call this function to initialize the fucking buddy system. */
+/**
+ * Call this function to initialize the buddy system.
+ * It will automatically set up the page table.
+ */
 pub unsafe fn init_alloc(mem_end : usize)  {
     extern "C" { fn ekernel(); }
     assert!((ekernel as usize) <= MEMORY_START, "Kernel too big...");
@@ -63,9 +66,9 @@ pub unsafe fn demo() {
     // BuddyAllocator::deallocate(p2, 1);
 
     drop(t);
-    
+
     BuddyAllocator::debug();
-    
+
     // t.reserve(1 << 10); // This function will panic
 
     sanity_check();
