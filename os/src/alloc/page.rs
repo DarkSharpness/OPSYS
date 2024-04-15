@@ -190,8 +190,8 @@ impl PageTableEntry {
     pub fn set_entry(&mut self, addr : PageAddress, flag : PTEFlag) {
         self.0 = (addr.bits()) << 10 | flag.bits();
     }
-    pub fn get_entry(&self) -> (PageAddress, PTEFlag) {
-        (PageAddress::new_u64(self.0 >> 10), PTEFlag(self.0 & PageTableEntry::MASK))
+    pub fn get_entry(self) -> (PageAddress, PTEFlag) {
+        (PageAddress(self.0 >> 10), PTEFlag(self.0 & PageTableEntry::MASK))
     }
     pub fn set_flag(&mut self, flag : PTEFlag) {
         self.0 = (self.0 & !PageTableEntry::MASK) | flag.bits();
@@ -265,8 +265,7 @@ unsafe fn set_normal_identity(mut page : PageAddress, i : usize, j : usize, k : 
 
 unsafe fn allocate_zero() -> PageAddress {
     let addr = BuddyAllocator::allocate_page();
-    warning!("Allocate a zero page {:p}", addr);
- 
+
     /* Reset the page to zero. */
     let temp = addr as *mut u64;
     for i in 0..512 { *temp.wrapping_add(i) = 0; }
@@ -276,6 +275,5 @@ unsafe fn allocate_zero() -> PageAddress {
 
 unsafe fn allocate_page() -> PageAddress {
     let addr = BuddyAllocator::allocate_page();
-    warning!("Allocate a page {:p}", addr);
     return PageAddress::new_ptr(addr);
 }
