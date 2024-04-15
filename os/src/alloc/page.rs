@@ -1,42 +1,6 @@
-/**
- * Page table settings.
- * 
- *  We use huge page, middle page and normal page to manage the memory.
- * 
- * -------------------------------------------------------------------
- * 
- * [0x00000000, 0x80000000): MMIO.
- * We use just 2 huge pages to manage them.
- * 
- * -------------------------------------------------------------------
- * 
- * [0x80000000, ekernel): Kernel code part.
- * We use detailed normal page to manage them.
- * For example, the rodata part is read only, while the text part is
- * execute only.
- * It will takes no more than 1 leaf page table.
- * 
- * -------------------------------------------------------------------
- * 
- * [ekernel, 0x80200000): Padding. (unused, so unmaped)
- * It is in the same leaf page table as kernel code, so we choose
- * to set those entries as invalid.
- * 
- * -------------------------------------------------------------------
- * 
- * [0x80200000, mem_end): Kernel memory management.
- * This part should take no more than 1 middle page table.
- * We do not use leaf page table since that's too costly.
- * We set their entries as read/write only.
- * 
- * -------------------------------------------------------------------
- */
-
-#[allow(unused_imports)]
-use crate::message;
-use crate::{console::print_separator, driver::get_mem_end};
-
-use super::{constant::*, frame::FrameAllocator};
+use crate::alloc::print_separator;
+use crate::alloc::get_mem_end;
+use super::{buddy::BuddyAllocator, constant::*};
 
 #[derive(Clone, Copy)]
 pub struct PageAddress(u64);
@@ -49,8 +13,8 @@ pub struct PTEFlag(u64);
  * Allocate a zero-filled page and return the physical address.
  */
 pub unsafe fn allocate_zero() -> PageAddress {
-    let addr = FrameAllocator::allocate_page();
-
+    let addr = BuddyAllocator::allocate_page();
+ 
     /* Reset the page to zero. */
     let temp = addr as *mut u64;
     for i in 0..512 { *temp.wrapping_add(i) = 0; }
@@ -62,47 +26,49 @@ pub unsafe fn allocate_zero() -> PageAddress {
  * Allocate a page and return the physical address.
  */
 pub unsafe fn allocate_page() -> PageAddress {
-    return PageAddress::new_ptr(FrameAllocator::allocate_page());
+    return PageAddress::new_ptr(BuddyAllocator::allocate_page());
 }
-
 
 /**
  * Init the page table with 3 size of pages.
  */
 pub unsafe fn init_page_table() {
     logging!("Initialize the page table.");
+    extern "C" { fn get_pagetable() -> usize; }
+
+    /* Page table should be located at 0x80002000.  */
+    assert!(get_pagetable() == PAGE_TABLE_ADDR, "Page table at wrong address!");
+
     let mut root = PAGE_TABLE;
 
     // Reset as invalid.
     for i in 3..512 {
-        set_huge(root, i, PTEFlag::INVALID);
+        set_huge_identity(root, i, PTEFlag::INVALID);
     }
 
     // Set MMIO as read/write only.
-    set_huge(root, 0, PTEFlag::RW);
-    set_huge(root, 1, PTEFlag::RW);
+    set_huge_identity(root, 0, PTEFlag::RW);
+    set_huge_identity(root, 1, PTEFlag::INVALID);
 
-    // Kernel part below.
-    // Set kernel part using middle size page.
-
+    // Set kernel part using middle/normal size page.
     // Set the second level page table.
     let mut page = allocate_zero();
     root[2].set_entry(page, PTEFlag::NEXT);
+
+    // Set the kernel memory as read/write only.
+    let mem_end = get_relative_page_num(get_mem_end()) >> 9;
+    for i in 1..mem_end {
+        set_medium_identity(page, 2, i, PTEFlag::RW);
+    }
+    // Set the rest as invalid, of course.
+    for i in mem_end..512 {
+        set_medium_identity(page, 2, i, PTEFlag::INVALID);
+    }
 
     // Set the kernel code in details.
     let leaf = allocate_zero();
     page[0].set_entry(leaf, PTEFlag::NEXT);
     init_kernel_page(leaf);
-
-    let mem_end = get_kernel_page_num(get_mem_end()) >> 9;
-
-    // Set the kernel memory as read/write only.
-    for i in 1..mem_end {
-        set_medium(page, 2, i, PTEFlag::RW);
-    }
-    for i in mem_end..512 {
-        set_medium(page, 2, i, PTEFlag::INVALID);
-    }
 
     logging!("Page table initialized.");
     print_separator();
@@ -121,39 +87,46 @@ unsafe fn init_kernel_page(leaf : PageAddress) {
         fn ekernel();
     }
 
-    let text_start  = get_kernel_page_num(stext as usize);
-    let text_finish = get_kernel_page_num(etext as usize);
+    let text_start  = get_relative_page_num(stext as usize);
+    let text_finish = get_relative_page_num(etext as usize);
+    message!("text_start: {}, text_finish: {}", text_start, text_finish);
     for i in text_start..text_finish {
-        set_normal(leaf, 2, 0, i, PTEFlag::RX);
+        set_normal_identity(leaf, 2, 0, i, PTEFlag::RX);
     }
-    // message!("text_start: {}, text_finish: {}", text_start, text_finish);
 
-    let rodata_start  = get_kernel_page_num(srodata as usize);
-    let rodata_finish = get_kernel_page_num(erodata as usize);
+    let rodata_start  = get_relative_page_num(srodata as usize);
+    let rodata_finish = get_relative_page_num(erodata as usize);
+    message!("rodata_start: {}, rodata_finish: {}", rodata_start, rodata_finish);
     for i in rodata_start..rodata_finish {
-        set_normal(leaf, 2, 0, i, PTEFlag::R);
+        set_normal_identity(leaf, 2, 0, i, PTEFlag::R);
     }
-    // message!("rodata_start: {}, rodata_finish: {}", rodata_start, rodata_finish);
 
-    let data_start  = get_kernel_page_num(sdata as usize);
-    let data_finish = get_kernel_page_num(edata as usize);
+    let data_start  = get_relative_page_num(sdata as usize);
+    let data_finish = get_relative_page_num(edata as usize);
+    message!("data_start: {}, data_finish: {}", data_start, data_finish);
     for i in data_start..data_finish {
-        set_normal(leaf, 2, 0, i, PTEFlag::RW);
+        set_normal_identity(leaf, 2, 0, i, PTEFlag::RW);
     }
-    // message!("data_start: {}, data_finish: {}", data_start, data_finish);
 
-    let bss_start  = get_kernel_page_num(sbss_real as usize);
-    let bss_finish = get_kernel_page_num(ebss as usize);
+    let bss_start  = get_relative_page_num(sbss_real as usize);
+    let bss_finish = get_relative_page_num(ebss as usize);
+    message!("bss_start: {}, bss_finish: {}", bss_start, bss_finish);
     for i in bss_start..bss_finish {
-        set_normal(leaf, 2, 0, i, PTEFlag::RW);
+        set_normal_identity(leaf, 2, 0, i, PTEFlag::RW);
     }
-    // message!("bss_start: {}, bss_finish: {}", bss_start, bss_finish);
 
-    let finish = get_kernel_page_num(ekernel as usize);
+    // The rest is reserved for buddy allocator.
+    let finish = get_relative_page_num(ekernel as usize);
+    message!("Kernel page finish at {}", finish);
     for i in finish..512 {
-        set_normal(leaf, 2, 0, i, PTEFlag::INVALID);
+        set_normal_identity(leaf, 2, 0, i, PTEFlag::RW);
     }
-    // message!("Kernel page finish at {}", finish);
+
+    // Set the address of root page table as read/write-able
+    // This is because our pagetable is placed at a special
+    // position, within the text section (which will be marked as RX).
+    // So, we need to change it to RW.
+    set_normal_identity(leaf, 2, 0, 2, PTEFlag::RW);
 } 
 
 /**
@@ -228,12 +201,15 @@ impl PTEFlag {
 }
 
 impl PageTableEntry {
-
+    const MASK : u64 = 0x3FF;
     pub fn set_entry(&mut self, addr : PageAddress, flag : PTEFlag) {
         self.0 = (addr.bits()) << 10 | flag.bits();
     }
     pub fn get_entry(&self) -> (PageAddress, PTEFlag) {
-        (PageAddress::new_u64(self.0 >> 10), PTEFlag(self.0 & 0x3FF))
+        (PageAddress::new_u64(self.0 >> 10), PTEFlag(self.0 & PageTableEntry::MASK))
+    }
+    pub fn set_flag(&mut self, flag : PTEFlag) {
+        self.0 = (self.0 & !PageTableEntry::MASK) | flag.bits();
     }
 }
 
@@ -276,19 +252,22 @@ impl core::ops::IndexMut<usize> for PageAddress {
     }
 }
 
-unsafe fn get_kernel_page_num(x : usize) -> usize {
+/** Return the relative page number to the front of kernel (0x80000000).  */
+unsafe fn get_relative_page_num(x : usize) -> usize {
     extern "C" { fn skernel(); }
     return (x - skernel as usize) / PAGE_SIZE;
 }
 
-unsafe fn set_huge(mut page : PageAddress, i : usize, flag : PTEFlag) {
+/* Some identity mapping based-on the level size of the page (huge/medium/normal). */
+
+unsafe fn set_huge_identity(mut page : PageAddress, i : usize, flag : PTEFlag) {
     page[i].set_entry(PageAddress::new_huge(i as _), flag);
 }
 
-unsafe fn set_medium(mut page : PageAddress, i : usize, j : usize, flag : PTEFlag) {
+unsafe fn set_medium_identity(mut page : PageAddress, i : usize, j : usize, flag : PTEFlag) {
     page[j].set_entry(PageAddress::new_medium(i as _, j as _), flag);
 }
 
-unsafe fn set_normal(mut page : PageAddress, i : usize, j : usize, k : usize, flag : PTEFlag) {
+unsafe fn set_normal_identity(mut page : PageAddress, i : usize, j : usize, k : usize, flag : PTEFlag) {
     page[k].set_entry(PageAddress::new_normal(i as _, j as _, k as _), flag);
 }
