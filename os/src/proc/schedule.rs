@@ -7,11 +7,17 @@ pub unsafe fn run_process() {
     logging!("Starting process scheduler...");
     loop {
         Interrupt::disable();
-        let prev_task = current_process();
+
+        let prev_task   = current_process();
         assert!(prev_task.is_null(), "Task should be null");
-        let next_task = next_process();
-        switch_context(get_context() as _, (*next_task).context as _);
+        let next_task   = next_process();
+
+        let old_context = get_context() as *const Context;
+        let new_context = &(*next_task).context as *const Context;
+
+        switch_context(old_context as _, new_context as _);
         complete_process(next_task);
+
         Interrupt::enable();
     }
 }
@@ -36,6 +42,9 @@ unsafe fn next_process() -> *mut Process {
     return process;
 }
 
+/**
+ * Complete a process.
+ */
 pub unsafe fn complete_process(process : *mut Process) {
     let manager = get_manager();
     assert!(manager.running_process == process, "Invalid process to complete");

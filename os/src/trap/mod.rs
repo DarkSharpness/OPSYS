@@ -12,6 +12,7 @@ use crate::alloc::{vmmap, PTEFlag, PageAddress, PAGE_SIZE};
 core::arch::global_asm!(include_str!("trap.asm"));
 
 pub const TRAMPOLINE : u64 = (!PAGE_SIZE + 1) as u64;
+pub const TRAP_FRAME : u64 = TRAMPOLINE - (PAGE_SIZE as u64);
 
 extern "C" {
     fn core_handle();
@@ -28,14 +29,8 @@ unsafe fn set_kernel_trap() {
     stvec::write(core_handle as usize, stvec::TrapMode::Direct);
 }
 
-/**
- * Set the trampoline for kernel or user.
- * In every case, trampoline is only executable in supervisor mode,
- * so the U bit in PTE should be set to 0.
- */
-pub unsafe fn set_trampoline(root : PageAddress) {
-    // Trampoline is laid at [-4096, 0)
-    vmmap(root, TRAMPOLINE, user_handle as _, PTEFlag::RX);
+pub unsafe fn get_trampoline() -> PageAddress {
+    return PageAddress::new_u64(user_handle as _)
 }
 
 pub struct Interrupt;

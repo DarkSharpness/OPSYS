@@ -1,11 +1,19 @@
 extern crate alloc;
+extern "C" { fn user_return(satp : usize); }
+
+use core::ptr::null_mut;
+use core::sync::atomic::AtomicU64;
 
 use alloc::collections::VecDeque;
 use alloc::str;
+use riscv::register::satp;
 use crate::driver::get_tid;
 use crate::layout::*;
 
-use crate::alloc::PageAddress;
+use crate::alloc::{ummap, vmmap, PTEFlag, PageAddress, PAGE_TABLE};
+use crate::trap::{get_trampoline, TrapFrame, TRAMPOLINE, TRAP_FRAME};
+
+use super::USER_STACK;
 
 pub struct Context {
     ra  : u64,
@@ -15,7 +23,7 @@ pub struct Context {
 
 type PidType = u64;
 
-pub enum ProcessStatus  {
+pub enum ProcessStatus {
     SLEEPING, // blocked
     RUNNABLE, // ready to run, but not running
     RUNNING, // running on CPU
@@ -29,8 +37,9 @@ pub struct Process {
     pub status      : ProcessStatus,    // process status
     pub root        : PageAddress,      // root of the page table
     pub parent      : * mut Process,    // parent process
-    pub context     : * mut Context,    // current context
+    pub trap_frame  : * mut TrapFrame,  // trap frame
     pub name        : &'static str,     // process name
+    pub context     : Context,          // current context
 }
 
 pub struct ProcessManager {
@@ -62,28 +71,57 @@ const TEST_PROGRAM0 : [u32; 4] = [
     0x0000bfd5, // j 0
 ];
 
+static mut PID_POOL : AtomicU64 = AtomicU64::new(0);
+
 pub unsafe fn current_process() -> *mut Process {
     let manager = get_manager();
     return manager.running_process;
 }
 
 pub unsafe fn init_process() {
-    // let manager = get_manager();
-    // manager.process_queue.push_back();
+    let trampoline = get_trampoline();
+    vmmap(PAGE_TABLE, TRAMPOLINE, trampoline, PTEFlag::RX);
 
+    let manager = get_manager();
+    manager.process_queue.push_back(Process::new("test", null_mut()));
     todo!();
 }
 
 
 impl Process {
-    pub fn new(name : &'static str, parent : * mut Process) -> Process {
-        let root = PageAddress::new_pagetable();
+    pub unsafe fn new(name : &'static str, parent : * mut Process) -> Process {
+        let root    = PageAddress::new_pagetable();
+        let context = Context {
+            ra              : user_return as _,
+            sp              : USER_STACK,
+            saved_registers : [0; 12],
+        };
+
+        // Map at least one page for user's stack
+        let stack_page = PageAddress::new_rand_page();
+        ummap(root, USER_STACK, stack_page, PTEFlag::RW);
+
+        // Map the trampoline page.
+        let trampoline = get_trampoline();
+        vmmap(root, TRAMPOLINE, trampoline, PTEFlag::RX);
+
+        // Map the trap frame page.
+        let trap_frame = PageAddress::new_rand_page();
+        vmmap(root, TRAP_FRAME, trap_frame, PTEFlag::RW);
+        let trap_frame = trap_frame.address() as *mut TrapFrame;
+        let trap_frame = &mut *trap_frame;
+
+        trap_frame.pc = 0;
+        trap_frame.thread_number = get_tid() as _;
+        trap_frame.kernel_stack  = PageAddress::new_rand_page().address() as _;
+        trap_frame.kernel_satp   = satp::read().bits() as _;
+
+        // Complete the resource initialization.
         return Process {
-            pid         : 0,
             exit_code   : 0,
             status      : ProcessStatus::RUNNABLE,
-            context     : core::ptr::null_mut(),
-            name, root, parent,
+            pid         : allocate_pid(),
+            context, root, parent, name, trap_frame
         };
     }
 }
@@ -92,17 +130,20 @@ impl Process {
 /**
  * Return the current thread's manager.
  */
-#[inline(always)]
 pub unsafe fn get_manager() -> &'static mut ProcessManager {
-    let tid = get_tid();
-    return &mut MANAGER[tid];
+    return &mut MANAGER[get_tid()];
 }
 
 /**
  * Return the context pointer of the current thread.
  */
-#[inline(always)]
 pub unsafe fn get_context() -> *mut Context {
-    let tid = get_tid();
-    return &mut CONTEXT[tid];
+    return &mut CONTEXT[get_tid()];
+}
+
+/**
+ * Allocate an available pid for the process.
+ */
+unsafe fn allocate_pid() -> PidType {
+    return PID_POOL.fetch_add(1, core::sync::atomic::Ordering::SeqCst);
 }

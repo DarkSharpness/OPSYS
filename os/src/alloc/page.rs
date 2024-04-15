@@ -10,26 +10,6 @@ pub struct PageTableEntry(u64);
 pub struct PTEFlag(u64);
 
 /**
- * Allocate a zero-filled page and return the physical address.
- */
-pub unsafe fn allocate_zero() -> PageAddress {
-    let addr = BuddyAllocator::allocate_page();
- 
-    /* Reset the page to zero. */
-    let temp = addr as *mut u64;
-    for i in 0..512 { *temp.wrapping_add(i) = 0; }
-
-    return PageAddress::new_ptr(addr);
-}
-
-/**
- * Allocate a page and return the physical address.
- */
-pub unsafe fn allocate_page() -> PageAddress {
-    return PageAddress::new_ptr(BuddyAllocator::allocate_page());
-}
-
-/**
  * Init the page table with 3 size of pages.
  */
 pub unsafe fn init_page_table() {
@@ -52,7 +32,7 @@ pub unsafe fn init_page_table() {
 
     // Set kernel part using middle/normal size page.
     // Set the second level page table.
-    let mut page = allocate_zero();
+    let mut page = PageAddress::new_pagetable();
     root[2].set_entry(page, PTEFlag::NEXT);
 
     // Set the kernel memory as read/write only.
@@ -66,7 +46,7 @@ pub unsafe fn init_page_table() {
     }
 
     // Set the kernel code in details.
-    let leaf = allocate_zero();
+    let leaf = PageAddress::new_pagetable();
     page[0].set_entry(leaf, PTEFlag::NEXT);
     init_kernel_page(leaf);
 
@@ -132,7 +112,7 @@ unsafe fn init_kernel_page(leaf : PageAddress) {
 /**
  * Build up a mapping from a virtual address to a physical address at given page table.
  */
-pub unsafe fn vmmap(mut root : PageAddress, __virt : u64, __phys : u64, __flag : PTEFlag) {
+pub unsafe fn vmmap(mut root : PageAddress, __virt : u64, __phys : PageAddress, __flag : PTEFlag) {
     let virt = (__virt >> 12) as usize;
     let ppn0 = (virt >> 18) & 0x1FF;
     let ppn1 = (virt >> 9)  & 0x1FF;
@@ -141,7 +121,7 @@ pub unsafe fn vmmap(mut root : PageAddress, __virt : u64, __phys : u64, __flag :
     let page = &mut root[ppn0];
     let (addr, flag) = page.get_entry();
     if flag == PTEFlag::INVALID {
-        let temp = allocate_zero();
+        let temp = PageAddress::new_pagetable();
         page.set_entry(temp, PTEFlag::NEXT);
         root = temp;
     } else {
@@ -152,7 +132,7 @@ pub unsafe fn vmmap(mut root : PageAddress, __virt : u64, __phys : u64, __flag :
     let page = &mut root[ppn1];
     let (addr, flag) = page.get_entry();
     if flag == PTEFlag::INVALID {
-        let temp = allocate_zero();
+        let temp = PageAddress::new_pagetable();
         page.set_entry(temp, PTEFlag::NEXT);
         root = temp;
     } else {
@@ -163,18 +143,23 @@ pub unsafe fn vmmap(mut root : PageAddress, __virt : u64, __phys : u64, __flag :
     let page = &mut root[ppn2];
     let (____, flag) = page.get_entry();
     assert!(flag == PTEFlag::INVALID, "Mapping existed!");
-    page.set_entry(PageAddress::new_u64(__phys as _), __flag);
+    page.set_entry(__phys, __flag);
 }
 
 /**
  * Build up a mapping from user virtual address to a physical address at given page table.
  */
-pub unsafe fn ummap(root : PageAddress, __virt : u64, __phys : u64, __flag : PTEFlag) {
+pub unsafe fn ummap(root : PageAddress, __virt : u64, __phys : PageAddress, __flag : PTEFlag) {
     let __flag = PTEFlag(__flag.0 | PTEFlag::USER);
     return vmmap(root, __virt, __phys, __flag);
 }
 
-/* Implementation part below. */
+
+/**
+ * -----------------------------------------------------------
+ * The code below are some unnecessary implementation details.
+ * -----------------------------------------------------------
+ */
 
 impl PTEFlag {
     const VALID    : u64   = 1 << 0;
@@ -214,13 +199,16 @@ impl PageTableEntry {
 }
 
 impl PageAddress {
-    pub fn new_pagetable() -> Self {
-        unsafe { allocate_zero() }
-    }
-    pub const fn new_u64(num : u64) -> Self {
-        PageAddress(num >> 12)
-    }
-    pub fn new_ptr(num : *mut u8) -> Self {
+    /** Return a zero-filled page for page table. */
+    pub fn new_pagetable() -> Self { unsafe { allocate_zero() } }
+    /** Return a zero-filled page  */
+    pub fn new_zero_page() -> Self { unsafe { allocate_zero() } }
+    /** Return an uninitialized page with random bits. */
+    pub fn new_rand_page() -> Self { unsafe { allocate_page() } }
+    /** Return a page with given physical address entry. */
+    pub const fn new_u64(num : u64) -> Self { PageAddress(num >> 12) }
+
+    fn new_ptr(num : *mut u8) -> Self {
         PageAddress((num as u64) >> 12)
     }
     fn new_huge(ppn0 : u64) -> Self {
@@ -235,8 +223,11 @@ impl PageAddress {
     unsafe fn get_entry(&self, x : usize) -> &mut PageTableEntry {
         &mut *((self.0 << 12) as *mut PageTableEntry).wrapping_add(x)
     }
+
     /** Return the index of a physical page. */
-    pub fn bits(&self) -> u64 { self.0 }
+    pub fn bits(self) -> u64 { self.0 }
+    /** Return the physical address. */
+    pub fn address(self) -> *mut u8 { (self.0 << 12) as *mut u8 }
 }
 
 impl core::ops::Index<usize> for PageAddress {
@@ -270,4 +261,21 @@ unsafe fn set_medium_identity(mut page : PageAddress, i : usize, j : usize, flag
 
 unsafe fn set_normal_identity(mut page : PageAddress, i : usize, j : usize, k : usize, flag : PTEFlag) {
     page[k].set_entry(PageAddress::new_normal(i as _, j as _, k as _), flag);
+}
+
+unsafe fn allocate_zero() -> PageAddress {
+    let addr = BuddyAllocator::allocate_page();
+    warning!("Allocate a zero page {:p}", addr);
+ 
+    /* Reset the page to zero. */
+    let temp = addr as *mut u64;
+    for i in 0..512 { *temp.wrapping_add(i) = 0; }
+
+    return PageAddress::new_ptr(addr);
+}
+
+unsafe fn allocate_page() -> PageAddress {
+    let addr = BuddyAllocator::allocate_page();
+    warning!("Allocate a page {:p}", addr);
+    return PageAddress::new_ptr(addr);
 }
