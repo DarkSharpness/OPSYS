@@ -22,7 +22,7 @@ pub fn get_mem_end() -> usize {
 
 #[inline(never)]
 pub unsafe fn shutdown() {
-    logging!("Shutting down the machine...");
+    warning!("Shutting down the machine...");
     let pos = 0x100000 as * mut u32;
     pos.write_volatile(0x5555);
 }
