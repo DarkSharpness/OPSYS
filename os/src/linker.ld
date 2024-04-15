@@ -6,19 +6,16 @@ SECTIONS
 {
     . = BASE_ADDRESS;
     skernel = .;
-
     stext = .;
     .text : {
         *(.text.entry)
     }
 
-    . = ALIGN(4K);
-    traptext = .;
-    .text : {
-        *(.text.trap)
+    . = BASE_ADDRESS + 0x2000;
+    .data : {
+        *(.data.pagetable)
     }
 
-    . = ALIGN(4K);
     text = .;
     .text : {
         *(.text .text.*)
