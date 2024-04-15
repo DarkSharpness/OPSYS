@@ -2,7 +2,6 @@
 mod node;
 mod page;
 mod buddy;
-mod frame;
 mod constant;
 
 pub use constant::PAGE_TABLE;
@@ -11,20 +10,26 @@ pub use page::*;
 
 use constant::*;
 use core::alloc::{GlobalAlloc, Layout};
+use core::arch::global_asm;
+use core::cmp::max;
 use buddy::BuddyAllocator;
 use alloc::vec::Vec;
 
-use crate::{alloc::frame::FrameAllocator, console::print_separator, driver::get_mem_end};
+use crate::{console::print_separator, driver::get_mem_end};
 extern crate alloc;
+
+global_asm!(include_str!("alloc.asm"));
 
 struct Dummy;
 
 unsafe impl GlobalAlloc for Dummy {
-    unsafe fn alloc(&self, _layout: Layout) -> *mut u8 {
-        return BuddyAllocator::allocate(_layout.size())
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        let size = max(layout.size(), layout.align());
+        return BuddyAllocator::allocate(size);
     }
-    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
-        return BuddyAllocator::deallocate(_ptr, _layout.size())
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+        let size = max(layout.size(), layout.align());
+        return BuddyAllocator::deallocate(ptr, size);
     }
 }
 
@@ -37,16 +42,8 @@ static GLOBAL_ALLOCATOR : Dummy = Dummy;
  */
 pub unsafe fn init_alloc(mem_end : usize)  {
     extern "C" { fn ekernel(); }
-    assert!((ekernel as usize) <= MEMORY_START, "Kernel too big...");
-
-    let mut rank = 12;
-    let diff = mem_end - (BUDDY_START as usize);
-
-    while (1 << rank) <= diff { rank += 1; }
-    rank -= 1 + PAGE_BITS;
-
-    init_buddy(rank);
-    init_frame();
+    BuddyAllocator::first_init(ekernel as _, mem_end);
+    // logging!("Buddy allocator initialized! {} MiB in all!", (PAGE_SIZE << rank) >> 20);
     page::init_page_table();
 }
 
@@ -74,43 +71,10 @@ pub unsafe fn demo() {
 
     // t.reserve(1 << 10); // This function will panic
 
-    sanity_check();
-
     warning!("End of allocator demo!");
 
     print_separator();
 }
 
-pub unsafe fn display() {
-    FrameAllocator::debug();
-    BuddyAllocator::debug();
-}
-
-unsafe fn init_frame() {
-    FrameAllocator::first_init();
-    logging!("Frame allocator initialized! {} Pages available!", FrameAllocator::size());
-    // FrameAllocator::debug();
-}
-
-unsafe fn init_buddy(rank : usize) {
-    BuddyAllocator::first_init(rank);
-    logging!("Buddy allocator initialized! {} MiB in all!", (PAGE_SIZE << rank) >> 20);
-    // BuddyAllocator::debug();
-}
-
-// Running a boring sanity check to see if the memory can be accessed.
-unsafe fn sanity_check() {
-    let mut x = MEMORY_START as *mut u64;
-    let     y = get_mem_end() as *mut u64;
-    let   bias = 4096 / 8;
-    warning!("Sanity check started!
-        Begin of memory management = {:p} 
-        End   of memory management = {:p}", x, y);
-
-    let mut sum = 0;
-    while x != y {
-        sum += x.read_volatile();
-        x = x.offset(bias);
-    }
-    message!("Sanity check passed! Sum = {}", sum);
-}
+/** Display the memory usage of the allocator. */
+pub unsafe fn display() { BuddyAllocator::debug(); }
