@@ -59,8 +59,7 @@ user_handle:
     csrw satp, t2
     sfence.vma zero, zero
 
-    la t0, user_trap
-    jr t0
+    j user_trap
 
     .globl user_handle_end
     .align 3
