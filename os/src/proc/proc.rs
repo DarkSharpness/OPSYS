@@ -11,7 +11,7 @@ use crate::driver::get_tid;
 use crate::layout::*;
 
 use crate::alloc::{ummap, vmmap, PTEFlag, PageAddress, PAGE_TABLE};
-use crate::trap::{get_trampoline, TrapFrame, TRAMPOLINE, TRAP_FRAME};
+use crate::trap::{get_trampoline, user_trap_return, TrapFrame, TRAMPOLINE, TRAP_FRAME};
 
 use super::USER_STACK;
 
@@ -83,7 +83,7 @@ pub unsafe fn init_process() {
     vmmap(PAGE_TABLE, TRAMPOLINE, trampoline, PTEFlag::RX);
 
     let manager = get_manager();
-    manager.process_queue.push_back(Process::new("test", null_mut()));
+    manager.process_queue.push_back(Process::new_test("Demo Program"));
     todo!();
 }
 
@@ -92,7 +92,7 @@ impl Process {
     pub unsafe fn new(name : &'static str, parent : * mut Process) -> Process {
         let root    = PageAddress::new_pagetable();
         let context = Context {
-            ra              : user_return as _,
+            ra              : user_trap_return as u64,
             sp              : USER_STACK,
             saved_registers : [0; 12],
         };
@@ -123,6 +123,18 @@ impl Process {
             pid         : allocate_pid(),
             context, root, parent, name, trap_frame
         };
+    }
+
+    pub unsafe fn new_test(name : &'static str) -> Process {
+        let process = Process::new(name, null_mut());
+        let text = PageAddress::new_zero_page();
+        ummap(process.root, 0 , text, PTEFlag::X);
+        // Copy in TEST_PROGRAM0
+        let addr = text.address() as *mut u32;
+        for i in 0..TEST_PROGRAM0.len() {
+            addr.wrapping_add(i).write_volatile(TEST_PROGRAM0[i]);
+        }
+        return process;
     }
 }
 

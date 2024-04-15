@@ -28,7 +28,6 @@ unsafe fn os_main() {
     if get_tid() == 0 {
         init_proc();
         driver::shutdown();
-        trap::user_trap();
     }
 }
 

@@ -1,9 +1,8 @@
 use core::arch;
 use riscv::register::*;
-use crate::trap::set_kernel_trap;
+use crate::{alloc::PageAddress, proc::current_process, trap::{set_kernel_trap, set_user_trap}};
 
-use super::user_return;
-
+use super::{user_handle, user_return, Interrupt, TRAMPOLINE};
 
 /**
  * Function called from user_handle
@@ -51,5 +50,30 @@ pub unsafe fn user_trap() {
     }
 
     // TODO: Load the satp register of the user
-    // return user_return(satp);
+    // return user_trap_return(satp);
+}
+
+pub unsafe fn user_trap_return() {
+    /* Prepare to go back to user, so just set spie bit. */
+    Interrupt::disable();
+    sstatus::set_spp(sstatus::SPP::User);
+    sstatus::set_spie();
+
+    /* Set the trap vector back to user vector */
+    set_user_trap();
+
+    let process = &mut *current_process();
+    sepc::write((*process.trap_frame).pc as _);
+
+    return return_to_user(process.root);
+}
+
+unsafe fn return_to_user(base : PageAddress) {
+    let satp = base.bits() | (8 << 60); // Sv39
+    let func = TRAMPOLINE + (user_return as u64 - user_handle as u64);
+
+    type CallType = fn(u64);
+    let func = func as * const CallType;
+
+    return (*func)(satp);
 }

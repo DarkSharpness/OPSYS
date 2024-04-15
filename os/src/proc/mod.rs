@@ -1,6 +1,8 @@
 mod proc;
 mod schedule;
 
+pub use proc::current_process;
+
 pub unsafe fn init_proc() {
     proc::init_process();
 }

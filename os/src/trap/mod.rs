@@ -3,7 +3,7 @@ mod user;
 mod kernel;
 mod frame;
 
-pub use user::user_trap;
+pub use user::user_trap_return;
 pub use frame::TrapFrame;
 
 use riscv::register::*;
@@ -20,15 +20,20 @@ extern "C" {
     fn user_handle();
     fn user_handle_end();
     
-    fn user_return(x : usize);
+    fn user_return(satp : usize);
     fn user_return_end();
 }
 
 #[inline(always)]
 unsafe fn set_kernel_trap() {
-    stvec::write(core_handle as usize, stvec::TrapMode::Direct);
+    stvec::write(core_handle as _, stvec::TrapMode::Direct);
+}
+#[inline(always)]
+unsafe fn set_user_trap() {
+    stvec::write(TRAMPOLINE  as _, stvec::TrapMode::Direct);
 }
 
+/** Return the trampoline physical address */
 pub unsafe fn get_trampoline() -> PageAddress {
     return PageAddress::new_u64(user_handle as _)
 }
@@ -39,4 +44,3 @@ impl Interrupt {
     pub unsafe fn enable()  { sstatus::set_sie();   }
     pub unsafe fn disable() { sstatus::clear_sie(); }
 }
-
