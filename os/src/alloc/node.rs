@@ -1,16 +1,16 @@
+use core::ptr::null_mut;
+
 use super::PAGE_SIZE;
 
+#[derive(Clone, Copy)]
 pub struct Node {
     pub prev : *mut Node,
     pub next : *mut Node,
 }
 
+#[derive(Clone, Copy)]
 pub struct List {
     pub head : Node
-}
-
-pub struct ForwardList {
-    pub head : *mut Node,
 }
 
 #[inline(always)]
@@ -26,6 +26,10 @@ pub unsafe fn unlink(node : *mut Node) {
 }
 
 impl List {
+    pub const fn new() -> List {
+        List { head : Node { prev : null_mut(), next : null_mut() } }
+    }
+
     pub unsafe fn init(&mut self) {
         let addr = &mut self.head as *mut Node;
         (*addr).prev = addr;
@@ -53,43 +57,21 @@ impl List {
     }
 
     pub unsafe fn debug(&self, rank : usize, base : *const u8) {
-        let len = 1 << rank;
-        let head = &self.head as *const Node;
+        let length  = 1 << rank;
+        let head    = &self.head as *const Node;
         let mut next = (*head).next;
         let mut rcnt = 0;
         while head != next {
             let node = next as *const u8;
             let offset = (node.offset_from(base) / PAGE_SIZE as isize) as usize;
             if rcnt == 0 {
-                message_inline!("  - [{},{}) ", offset, offset + len);
+                message_inline!("  - [{},{}) ", offset, offset + length);
             } else {
-                uart_print!("\0, [{},{}) ", offset, offset + len);
+                uart_print!("\0, [{},{}) ", offset, offset + length);
             }
             rcnt += 1;
             next = (*next).next;
         }
         if rcnt != 0 { uart_print!("\n"); }
-    }
-}
-
-
-impl ForwardList {
-    pub unsafe fn init(&mut self) {
-        self.head = core::ptr::null_mut();
-    }
-
-    pub unsafe fn push(&mut self, node : *mut Node) {
-        (*node).prev = self.head;
-        self.head = node;
-    }
-
-    pub unsafe fn pop(&mut self) -> *mut Node {
-        let node = self.head;
-        self.head = (*node).prev;
-        return node;
-    }
-
-    pub unsafe fn empty(&self) -> bool {
-        return self.head.is_null();
     }
 }
