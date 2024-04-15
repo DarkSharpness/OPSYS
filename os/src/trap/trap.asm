@@ -52,8 +52,8 @@ user_handle:
     sd t1, 248(sp)  # User's program counter
 
     ld tp, 256(sp)  # Thread number
-    ld sp, 264(sp)  # Kernel stack pointer
     ld t2, 272(sp)  # Kernel satp
+    ld sp, 264(sp)  # Kernel stack pointer
 
     sfence.vma zero, zero
     csrw satp, t2
