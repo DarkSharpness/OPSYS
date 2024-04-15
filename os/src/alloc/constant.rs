@@ -1,11 +1,6 @@
 use super::page::PageAddress;
 use crate::alloc::node::List;
 
-// A tiny helper funciton
-const fn align_as(usize: usize, align: usize) -> usize {
-    return (usize + align - 1) & !(align - 1);
-}
-
 pub const PAGE_BITS : usize = 12;               // Page bits
 pub const PAGE_SIZE : usize = 1 << PAGE_BITS;   // Page size
 pub const WORD_BITS : usize = 8;                // byte level bitmap
