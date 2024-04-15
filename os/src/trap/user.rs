@@ -72,8 +72,12 @@ unsafe fn return_to_user(base : PageAddress) {
     let satp = base.bits() | (8 << 60); // Sv39
     let func = TRAMPOLINE + (user_return as u64 - user_handle as u64);
 
-    type CallType = fn(u64);
-    let func = func as * const CallType;
+    message!("Returning to user space with satp: {:#x}", satp);
+    message!("Returning to user space with addr: {:#x}", func);
 
-    return (*func)(satp);
+    type CallType = fn(u64);
+    let ptr  = &func as *const _;
+    let ptr  = ptr as *const CallType;
+
+    return (*ptr)(satp);
 }
