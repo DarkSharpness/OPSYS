@@ -10,7 +10,7 @@ use riscv::register::satp;
 use crate::driver::get_tid;
 use crate::layout::*;
 
-use crate::alloc::{ummap, vmmap, PTEFlag, PageAddress, PAGE_TABLE};
+use crate::alloc::{ummap, vmmap, PTEFlag, PageAddress, PAGE_SIZE, PAGE_TABLE};
 use crate::trap::{get_trampoline, user_trap_return, TrapFrame, TRAMPOLINE, TRAP_FRAME};
 
 use super::USER_STACK;
@@ -96,7 +96,8 @@ impl Process {
 
         // Map at least one page for user's stack
         let stack_page = PageAddress::new_rand_page();
-        ummap(root, USER_STACK, stack_page, PTEFlag::RW);
+        let user_stack = USER_STACK - (PAGE_SIZE as u64);
+        ummap(root, user_stack, stack_page, PTEFlag::RW);
 
         message!("Process {} created with root {:#x}", name, root.address() as usize);
 
@@ -107,10 +108,13 @@ impl Process {
         // Map the trap frame page.
         let trap_frame = PageAddress::new_rand_page();
         vmmap(root, TRAP_FRAME, trap_frame, PTEFlag::RW);
+
+        // Map the kernel stack page.
+        // Note that stack pointer should be set to the top of the page.
+        let core_stack = PageAddress::new_rand_page().address() as usize + PAGE_SIZE;
+
         let trap_frame = trap_frame.address() as *mut TrapFrame;
         let trap_frame = &mut *trap_frame;
-
-        let core_stack = PageAddress::new_rand_page().address();
 
         trap_frame.pc = 0;
         trap_frame.sp = USER_STACK;
