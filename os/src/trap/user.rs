@@ -25,7 +25,7 @@ pub unsafe fn user_trap() {
             Interrupt::SupervisorSoft => {
                 arch::asm!("csrci sip, 2");
 
-                // todo!("Yield out the time interrupt here");
+                todo!("Yield out the time interrupt here");
             },
             Interrupt::SupervisorExternal => {
                 // Acknowledge the external interrupt
@@ -34,7 +34,6 @@ pub unsafe fn user_trap() {
 
                 todo!("Resolve the external interrupt");
             }
-
             _ => panic!("Unable to resolve interrupt {:?}", interrupt),   
         },
 
