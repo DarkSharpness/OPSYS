@@ -3,7 +3,7 @@ mod user;
 mod kernel;
 mod frame;
 
-pub use user::user_trap_return;
+pub use user::*;
 pub use frame::TrapFrame;
 
 use riscv::register::*;

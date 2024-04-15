@@ -1,5 +1,4 @@
 extern crate alloc;
-extern "C" { fn user_return(satp : usize); }
 
 use core::ptr::null_mut;
 use core::sync::atomic::AtomicU64;
@@ -11,7 +10,7 @@ use crate::driver::get_tid;
 use crate::layout::*;
 
 use crate::alloc::{ummap, vmmap, PTEFlag, PageAddress, PAGE_SIZE, PAGE_TABLE};
-use crate::trap::{get_trampoline, user_trap_return, TrapFrame, TRAMPOLINE, TRAP_FRAME};
+use crate::trap::{get_trampoline, user_trap, user_trap_return, TrapFrame, TRAMPOLINE, TRAP_FRAME};
 
 use super::USER_STACK;
 
@@ -121,6 +120,7 @@ impl Process {
         trap_frame.thread_number = get_tid() as _;
         trap_frame.kernel_stack  = core_stack as _;
         trap_frame.kernel_satp   = satp::read().bits() as _;
+        trap_frame.kernel_trap   = user_trap as _;
 
         let context = Context {
             ra              : user_trap_return as u64,

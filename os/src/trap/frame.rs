@@ -38,6 +38,7 @@ pub struct TrapFrame {
     pub pc  : u64,
 
     pub thread_number   : u64,  // real thread number
-    pub kernel_stack    : u64,  // kernel stack pointer
     pub kernel_satp     : u64,  // kernel page table
+    pub kernel_trap     : u64,  // kernel trap handler
+    pub kernel_stack    : u64,  // kernel stack pointer
 }

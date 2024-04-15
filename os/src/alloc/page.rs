@@ -1,5 +1,4 @@
 use riscv::paging::PTE;
-use riscv::register::satp;
 
 use crate::alloc::print_separator;
 use crate::alloc::get_mem_end;
@@ -246,7 +245,7 @@ impl PageAddress {
 
     /** Debug output. */
     pub fn debug(self) {
-        warning!("Root address = {:#x}", satp::read().bits());
+        warning!("Root address = {:#x}", self.address() as usize);
 
         for i in 0..512 {
             let base = i << 18;
