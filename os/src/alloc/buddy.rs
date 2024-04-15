@@ -5,29 +5,13 @@ use super::constant::*;
 pub struct BuddyAllocator;
 
 #[inline(always)]
-unsafe fn get_rank(mut size : usize) -> usize {
+const fn get_rank(mut size : usize) -> usize {
     let mut rank = 0;
     while PAGE_SIZE < size {
         size >>= 1;
         rank += 1;
     }
     return rank;
-}
-
-#[inline(always)]
-unsafe fn rklist(idx : usize) -> *mut List {
-    return RKLIST.add(idx);
-}
-
-#[inline(always)]
-unsafe fn mask(rank : usize) -> usize {
-    return 1 << (MAX_RANK - rank - 1);
-}
-
-/* Divide and mod operation to get word and offset. */
-#[inline(always)]
-unsafe fn div_mod(num : usize) -> (* mut u8, usize) {
-    return (BITMAP.add(num / WORD_BITS), num % WORD_BITS);
 }
 
 /* Remove the buddy for the free list. */
@@ -41,7 +25,7 @@ unsafe fn remove_buddy(num : usize, rank : usize) {
 unsafe fn find_first(rank : usize) -> usize{
     let mut ret = rank;
     loop {
-        assert!(rank < MAX_RANK, "Out of memory!");
+        assert!(rank < TOP_RANK, "Out of memory!");
         if !(*rklist(ret)).empty() { break; }
         ret += 1;
     } return ret;
@@ -67,10 +51,10 @@ unsafe fn set_busy(num : usize) {
     ptr.write(ptr.read() & !(1 << bit));
 }
 
-/* Set a bit as busy. */
+/* Set a bit as free. */
 unsafe fn set_free(num : usize) {
     let (ptr, bit) = div_mod(num);
-    ptr.write(ptr.read() | 1 << bit);
+    ptr.write(ptr.read() | (1 << bit));
 }
 
 /* Test and set this bit and buddy bit accordingly.  */
@@ -118,42 +102,83 @@ unsafe fn try_dealloc(mut num : usize, mut rank : usize) {
     (*rklist(rank)).push(set_index(num, rank) as _);
 }
 
-/* Init the rank list as empty.  */
-unsafe fn init_rklist() {
-    for i in 0..MAX_RANK { (*rklist(i)).init(); }
-}
-
-/* Init the bit map with 0. */
-unsafe fn init_bitmap() {
-    for i in 0..MAP_SIZE { BITMAP.add(i).write(0); }
+/** A segement-tree style build-up for buddy allocator. */
+unsafe fn build(index : usize, l : usize, r : usize, beg : usize , end : usize, rank : usize) {
+    /* Exactly the node. */
+    if l == beg && r == end {
+        set_free(index);
+        let index = set_index(index, rank);
+        return rklist(rank).push(index as _);
+    } else {
+        let mid = (l + r) >> 1;
+        if end <= mid {
+            // [begin, end) \in [l, mid)
+            return build(index << 1 | 0, l, mid, beg, end, rank - 1);
+        } else if mid <= beg {
+            // [begin, end) \in [mid, r)
+            return build(index << 1 | 1, mid, r, beg, end, rank - 1);
+        } else {
+            // Divide into [begin, mid) and [mid, end)
+            build(index << 1 | 0, l, mid, beg, mid, rank - 1);
+            build(index << 1 | 1, mid, r, mid, end, rank - 1);
+        }
+    }
 }
 
 /* Functions of buddy allocator. */
 impl BuddyAllocator {
-    pub unsafe fn first_init(rank : usize) {
-        init_rklist(); init_bitmap();
+    const PAGE_RANK : usize = get_rank(PAGE_SIZE);
+    const MAX_INDEX : usize = MAX_SIZE / PAGE_SIZE;
 
-        (*rklist(rank)).push(BUDDY_START as _);
-        set_free(get_index(BUDDY_START, rank));
+    /** Call once on init. */
+    pub unsafe fn first_init(begin : usize, end : usize) {
+        init_rklist();
+        let begin = (begin - BASE_ADDRESS) / PAGE_SIZE + 1;
+        let end   = (end   - BASE_ADDRESS) / PAGE_SIZE;
+        build(1, 0, BuddyAllocator::MAX_INDEX, begin, end, TOP_RANK - 1);
+        BuddyAllocator::debug();
     }
 
+    /** Allocate an arbitary size of memory (aligned to page). */
     pub unsafe fn allocate(size : usize) -> *mut u8 {
         return try_alloc(get_rank(size));
     }
-
+    /** Deallocate an arbitary size of memory (aligned to page). */
     pub unsafe fn deallocate(ptr : *mut u8, size : usize) {
         let rank = get_rank(size);
         return try_dealloc(get_index(ptr, rank), rank);
     }
 
+    /** Allocate exactly one page. */
+    pub unsafe fn allocate_page() -> *mut u8 {
+        return try_alloc(BuddyAllocator::PAGE_RANK);
+    }
+    /** Deallocate exactly one page.  */
+    pub unsafe fn deallocate_page(ptr : *mut u8) {
+        return try_dealloc(get_index(ptr, BuddyAllocator::PAGE_RANK), BuddyAllocator::PAGE_RANK);
+    }
+
+    /** An inner debug interface. */
     pub unsafe fn debug() {
         warning!("Base address: {:p}", BUDDY_START);
-        for i in 0..MAX_RANK {
-            let list = rklist(i);
+        for i in 0..TOP_RANK {
             message!("  Rank {}: ", i);
-            (*list).debug(i, BUDDY_START);
+            rklist(i).debug(i, BUDDY_START);
         }
         warning!("End of buddy debug!");
         print_separator();
     }
 }
+
+#[inline(always)]
+unsafe fn rklist(idx : usize) -> &'static mut List { return RKLIST.get_unchecked_mut(idx); }
+#[inline(always)]
+unsafe fn mask(rank : usize) -> usize { return 1 << (TOP_RANK - 1 - rank); }
+/** Divide and mod operation to get word and offset. */
+#[inline(always)]
+unsafe fn div_mod(num : usize) -> (* mut u8, usize) {
+    return (BITMAP.get_unchecked_mut(num / WORD_BITS), num % WORD_BITS);
+}
+/* Init the rank list as empty.  */
+#[inline(always)]
+unsafe fn init_rklist() { for i in 0..TOP_RANK { rklist(i).init(); } }
