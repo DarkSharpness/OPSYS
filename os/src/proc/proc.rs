@@ -15,6 +15,7 @@ use crate::trap::{get_trampoline, user_trap_return, TrapFrame, TRAMPOLINE, TRAP_
 
 use super::USER_STACK;
 
+#[repr(C)]
 pub struct Context {
     ra  : u64,
     sp  : u64,
@@ -66,8 +67,10 @@ static mut CONTEXT : [Context; NCPU] = [
 
 const TEST_PROGRAM0 : [u32; 4] = [
     0x10000537, // lui a0,0x10000
-    0x0310059b, // addiw a1,zero,0x31
-    0x00b50023, // sb a1,0(a0)
+    // 0x0310059b, // addiw a1,zero,0x31
+    // 0x00b50023, // sb a1,0(a0)
+    0x0000bfd5, // j 0
+    0x0000bfd5, // j 0
     0x0000bfd5, // j 0
 ];
 
@@ -84,22 +87,18 @@ pub unsafe fn init_process() {
 
     let manager = get_manager();
     manager.process_queue.push_back(Process::new_test("Demo Program"));
-    todo!();
 }
 
 
 impl Process {
     pub unsafe fn new(name : &'static str, parent : * mut Process) -> Process {
         let root    = PageAddress::new_pagetable();
-        let context = Context {
-            ra              : user_trap_return as u64,
-            sp              : USER_STACK,
-            saved_registers : [0; 12],
-        };
 
         // Map at least one page for user's stack
         let stack_page = PageAddress::new_rand_page();
         ummap(root, USER_STACK, stack_page, PTEFlag::RW);
+
+        message!("Process {} created with root {:#x}", name, root.address() as usize);
 
         // Map the trampoline page.
         let trampoline = get_trampoline();
@@ -111,10 +110,19 @@ impl Process {
         let trap_frame = trap_frame.address() as *mut TrapFrame;
         let trap_frame = &mut *trap_frame;
 
+        let core_stack = PageAddress::new_rand_page().address();
+
         trap_frame.pc = 0;
+        trap_frame.sp = USER_STACK;
         trap_frame.thread_number = get_tid() as _;
-        trap_frame.kernel_stack  = PageAddress::new_rand_page().address() as _;
+        trap_frame.kernel_stack  = core_stack as _;
         trap_frame.kernel_satp   = satp::read().bits() as _;
+
+        let context = Context {
+            ra              : user_trap_return as u64,
+            sp              : core_stack as _,
+            saved_registers : [0; 12],
+        };
 
         // Complete the resource initialization.
         return Process {
@@ -129,6 +137,9 @@ impl Process {
         let process = Process::new(name, null_mut());
         let text = PageAddress::new_zero_page();
         ummap(process.root, 0 , text, PTEFlag::X);
+        let mmio = PageAddress::new_u64(0x10000000);
+        ummap(process.root, 0x10000000 , mmio , PTEFlag::RW);
+
         // Copy in TEST_PROGRAM0
         let addr = text.address() as *mut u32;
         for i in 0..TEST_PROGRAM0.len() {

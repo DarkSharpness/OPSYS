@@ -1,4 +1,5 @@
 use crate::alloc::{PageAddress, PAGE_TABLE};
+#[repr(C)]
 pub struct TrapFrame {
     pub ra  : u64,
     pub gp  : u64,
