@@ -1,3 +1,5 @@
+use riscv::paging::PTE;
+
 use crate::alloc::print_separator;
 use crate::alloc::get_mem_end;
 use super::{buddy::BuddyAllocator, constant::*};
@@ -170,9 +172,8 @@ impl PTEFlag {
     const GLOBAL   : u64   = 1 << 5;
     const ACCESSED : u64   = 1 << 6;
     const DIRTY    : u64   = 1 << 7;
-    const HUGE     : u64   = 1 << 8;
-    const RESERVED : u64   = 1 << 9;
-    
+    const RESERVED : u64   = 3 << 8;
+
     pub const INVALID   : PTEFlag = PTEFlag(0);
     pub const X     : PTEFlag = PTEFlag(PTEFlag::VALID | PTEFlag::EXECUTE);
     pub const R     : PTEFlag = PTEFlag(PTEFlag::VALID | PTEFlag::READ);
@@ -183,6 +184,18 @@ impl PTEFlag {
 
     /** Return the flag bits. */
     pub fn bits(&self) -> u64 { self.0 }
+
+    fn debug(self) {
+        let flag = self.0;
+        print_if(flag & PTEFlag::DIRTY      != 0, 'D');
+        print_if(flag & PTEFlag::ACCESSED   != 0, 'A');
+        print_if(flag & PTEFlag::GLOBAL     != 0, 'G');
+        print_if(flag & PTEFlag::USER       != 0, 'U');
+        print_if(flag & PTEFlag::EXECUTE    != 0, 'X');
+        print_if(flag & PTEFlag::WRITE      != 0, 'W');
+        print_if(flag & PTEFlag::READ       != 0, 'R');
+        uart_print!("\n");
+    }
 }
 
 impl PageTableEntry {
@@ -228,6 +241,39 @@ impl PageAddress {
     pub fn bits(self) -> u64 { self.0 }
     /** Return the physical address. */
     pub fn address(self) -> *mut u8 { (self.0 << 12) as *mut u8 }
+
+    /** Debug output. */
+    pub fn debug(self) {
+        for i in 0..512 {
+            let base = i << 18;
+            let (addr, flag) = self[i].get_entry();
+            if flag == PTEFlag::INVALID { continue; }
+            if flag != PTEFlag::NEXT {
+                message_inline!("Mapping 1GiB {:p} -> {:p} Flag = ",
+                    to_virtual(base) , addr.address());
+                flag.debug(); continue;
+            }
+            for j in 0..512 {
+                let base = base | j << 9;
+                let (addr, flag) = addr[j].get_entry();
+                if flag == PTEFlag::INVALID { continue; }
+                if flag != PTEFlag::NEXT {
+                    message_inline!("Mapping 2MiB {:p} -> {:p} Flag = ",
+                        to_virtual(base), addr.address());
+                    flag.debug(); continue;
+                }
+                for k in 0..512 {
+                    let base = base | k;
+                    let (addr, flag) = addr[k].get_entry();
+                    if flag == PTEFlag::INVALID { continue; }
+                    assert!(flag != PTEFlag::NEXT, "Invalid page table mapping!");
+                    message_inline!("Mapping 4KiB {:p} -> {:p} Flag = ",
+                        to_virtual(base), addr.address());
+                    flag.debug();
+                }
+            }
+        }
+    }
 }
 
 impl core::ops::Index<usize> for PageAddress {
@@ -280,3 +326,9 @@ unsafe fn allocate_page() -> PageAddress {
     warning!("Uninitialized page allocated at {:p}", addr);
     return PageAddress::new_ptr(addr);
 }
+
+#[inline(always)]
+fn print_if(cond : bool, mut x : char) { if !cond { x = '-'; } uart_print!("{}", x); }
+
+#[inline(always)]
+fn to_virtual(x : usize) -> *mut u8 { return (x << PAGE_BITS) as _; }
