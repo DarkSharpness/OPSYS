@@ -133,7 +133,7 @@ impl BuddyAllocator {
     /** Call once on init. */
     pub unsafe fn first_init(begin : usize, end : usize) {
         init_rklist();
-        let begin = (begin - BASE_ADDRESS) / PAGE_SIZE + 1;
+        let begin = (begin - BASE_ADDRESS) / PAGE_SIZE;
         let end   = (end   - BASE_ADDRESS) / PAGE_SIZE;
         build(1, 0, BuddyAllocator::MAX_INDEX, begin, end, TOP_RANK - 1);
         BuddyAllocator::debug();
