@@ -161,6 +161,8 @@ impl BuddyAllocator {
     /** An inner debug interface. */
     pub unsafe fn debug() {
         warning!("Base address: {:p}", BUDDY_START);
+        warning!("Bitmap address: {:p}", BITMAP.as_ptr());
+        warning!("Rank list address: {:p}", RKLIST.as_ptr());
         for i in 0..TOP_RANK {
             message!("  Rank {}: ", i);
             rklist(i).debug(i, BUDDY_START);

@@ -1,4 +1,5 @@
 use riscv::paging::PTE;
+use riscv::register::satp;
 
 use crate::alloc::print_separator;
 use crate::alloc::get_mem_end;
@@ -183,8 +184,9 @@ impl PTEFlag {
     pub const NEXT  : PTEFlag = PTEFlag(PTEFlag::VALID);
 
     /** Return the flag bits. */
-    pub fn bits(&self) -> u64 { self.0 }
+    pub fn bits(self) -> u64 { self.0 }
 
+    /** Debug output. */
     fn debug(self) {
         let flag = self.0;
         print_if(flag & PTEFlag::DIRTY      != 0, 'D');
@@ -244,30 +246,35 @@ impl PageAddress {
 
     /** Debug output. */
     pub fn debug(self) {
+        warning!("Root address = {:#x}", satp::read().bits());
+
         for i in 0..512 {
             let base = i << 18;
             let (addr, flag) = self[i].get_entry();
             if flag == PTEFlag::INVALID { continue; }
             if flag != PTEFlag::NEXT {
-                message_inline!("Mapping 1GiB {:p} -> {:p} Flag = ",
+                message_inline!("Mapping 1GiB {:<12p} -> {:<10p} Flag = ",
                     to_virtual(base) , addr.address());
-                flag.debug(); continue;
+                flag.debug(); 
+                continue;
             }
             for j in 0..512 {
                 let base = base | j << 9;
                 let (addr, flag) = addr[j].get_entry();
                 if flag == PTEFlag::INVALID { continue; }
                 if flag != PTEFlag::NEXT {
-                    message_inline!("Mapping 2MiB {:p} -> {:p} Flag = ",
+                    message_inline!("Mapping 2MiB {:<12p} -> {:<10p} Flag = ",
                         to_virtual(base), addr.address());
-                    flag.debug(); continue;
+                    flag.debug();
+                    continue;
                 }
+                warning!("Here {:p}", addr.address());
                 for k in 0..512 {
                     let base = base | k;
                     let (addr, flag) = addr[k].get_entry();
                     if flag == PTEFlag::INVALID { continue; }
                     assert!(flag != PTEFlag::NEXT, "Invalid page table mapping!");
-                    message_inline!("Mapping 4KiB {:p} -> {:p} Flag = ",
+                    message_inline!("Mapping 4KiB {:<12p} -> {:<10p} Flag = ",
                         to_virtual(base), addr.address());
                     flag.debug();
                 }
