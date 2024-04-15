@@ -6,9 +6,8 @@ mod frame;
 mod constant;
 
 pub use constant::PAGE_TABLE;
-pub use page::vmmap;
-pub use page::PTEFlag;
-pub use page::PageAddress;
+pub use constant::PAGE_SIZE;
+pub use page::*;
 
 use constant::*;
 use core::alloc::{GlobalAlloc, Layout};
@@ -48,7 +47,7 @@ pub unsafe fn init_alloc(mem_end : usize)  {
 
     init_buddy(rank);
     init_frame();
-    page::init_huge_page();
+    page::init_page_table();
 }
 
 /** A demo play function after the initialization. */

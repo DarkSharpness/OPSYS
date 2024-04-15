@@ -2,7 +2,7 @@ use core::arch;
 use riscv::register::*;
 use crate::trap::set_kernel_trap;
 
-use super::return_to_user;
+use super::user_return;
 
 
 /**
@@ -50,6 +50,6 @@ pub unsafe fn user_trap() {
         }
     }
 
-    let satp : usize = 0; // TODO: Load the satp register of the user
-    return return_to_user(satp)
+    // TODO: Load the satp register of the user
+    // return user_return(satp);
 }

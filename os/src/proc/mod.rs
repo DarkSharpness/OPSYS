@@ -1,5 +1,6 @@
 mod proc;
+mod schedule;
 
-pub fn init_proc() {
-
+pub unsafe fn init_proc() {
+    proc::init_process();
 }

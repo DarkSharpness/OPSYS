@@ -39,30 +39,16 @@ use crate::{console::print_separator, driver::get_mem_end};
 use super::{constant::*, frame::FrameAllocator};
 
 #[derive(Clone, Copy)]
-pub struct PageAddress(pub u64);
+pub struct PageAddress(u64);
 #[derive(Clone, Copy)]
 pub struct PageTableEntry(u64);
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct PTEFlag(u64);
 
-unsafe fn get_kernel_page_num(x : usize) -> usize {
-    extern "C" { fn skernel(); }
-    return (x - skernel as usize) / PAGE_SIZE;
-}
-
-unsafe fn set_huge(mut page : PageAddress, i : usize, flag : PTEFlag) {
-    page[i].set_entry(PageAddress::new_huge(i as _), flag);
-}
-
-unsafe fn set_medium(mut page : PageAddress, i : usize, j : usize, flag : PTEFlag) {
-    page[j].set_entry(PageAddress::new_medium(i as _, j as _), flag);
-}
-
-unsafe fn set_normal(mut page : PageAddress, i : usize, j : usize, k : usize, flag : PTEFlag) {
-    page[k].set_entry(PageAddress::new_normal(i as _, j as _, k as _), flag);
-}
-
-unsafe fn alloc_page() -> PageAddress {
+/**
+ * Allocate a zero-filled page and return the physical address.
+ */
+pub unsafe fn allocate_zero() -> PageAddress {
     let addr = FrameAllocator::allocate_page();
 
     /* Reset the page to zero. */
@@ -72,8 +58,18 @@ unsafe fn alloc_page() -> PageAddress {
     return PageAddress::new_ptr(addr);
 }
 
-// Initialize the huge page table.
-pub unsafe fn init_huge_page() {
+/**
+ * Allocate a page and return the physical address.
+ */
+pub unsafe fn allocate_page() -> PageAddress {
+    return PageAddress::new_ptr(FrameAllocator::allocate_page());
+}
+
+
+/**
+ * Init the page table with 3 size of pages.
+ */
+pub unsafe fn init_page_table() {
     logging!("Initialize the page table.");
     let mut root = PAGE_TABLE;
 
@@ -90,11 +86,11 @@ pub unsafe fn init_huge_page() {
     // Set kernel part using middle size page.
 
     // Set the second level page table.
-    let mut page = alloc_page();
+    let mut page = allocate_zero();
     root[2].set_entry(page, PTEFlag::NEXT);
 
     // Set the kernel code in details.
-    let leaf = alloc_page();
+    let leaf = allocate_zero();
     page[0].set_entry(leaf, PTEFlag::NEXT);
     init_kernel_page(leaf);
 
@@ -111,7 +107,6 @@ pub unsafe fn init_huge_page() {
     logging!("Page table initialized.");
     print_separator();
 }
-
 
 unsafe fn init_kernel_page(leaf : PageAddress) {
     extern "C" {
@@ -161,12 +156,11 @@ unsafe fn init_kernel_page(leaf : PageAddress) {
     // message!("Kernel page finish at {}", finish);
 } 
 
-
 /**
  * Build up a mapping from a virtual address to a physical address at given page table.
  */
-pub unsafe fn vmmap(mut root : PageAddress, __virt : usize, __phys : usize, __flag : PTEFlag) {
-    let virt = __virt >> 12;
+pub unsafe fn vmmap(mut root : PageAddress, __virt : u64, __phys : u64, __flag : PTEFlag) {
+    let virt = (__virt >> 12) as usize;
     let ppn0 = (virt >> 18) & 0x1FF;
     let ppn1 = (virt >> 9)  & 0x1FF;
     let ppn2 = (virt >> 0)  & 0x1FF;
@@ -174,7 +168,7 @@ pub unsafe fn vmmap(mut root : PageAddress, __virt : usize, __phys : usize, __fl
     let page = &mut root[ppn0];
     let (addr, flag) = page.get_entry();
     if flag == PTEFlag::INVALID {
-        let temp = alloc_page();
+        let temp = allocate_zero();
         page.set_entry(temp, PTEFlag::NEXT);
         root = temp;
     } else {
@@ -185,7 +179,7 @@ pub unsafe fn vmmap(mut root : PageAddress, __virt : usize, __phys : usize, __fl
     let page = &mut root[ppn1];
     let (addr, flag) = page.get_entry();
     if flag == PTEFlag::INVALID {
-        let temp = alloc_page();
+        let temp = allocate_zero();
         page.set_entry(temp, PTEFlag::NEXT);
         root = temp;
     } else {
@@ -199,6 +193,13 @@ pub unsafe fn vmmap(mut root : PageAddress, __virt : usize, __phys : usize, __fl
     page.set_entry(PageAddress::new_u64(__phys as _), __flag);
 }
 
+/**
+ * Build up a mapping from user virtual address to a physical address at given page table.
+ */
+pub unsafe fn ummap(root : PageAddress, __virt : u64, __phys : u64, __flag : PTEFlag) {
+    let __flag = PTEFlag(__flag.0 | PTEFlag::USER);
+    return vmmap(root, __virt, __phys, __flag);
+}
 
 /* Implementation part below. */
 
@@ -214,9 +215,7 @@ impl PTEFlag {
     const HUGE     : u64   = 1 << 8;
     const RESERVED : u64   = 1 << 9;
     
-    // Invalid page table entry flag.
     pub const INVALID   : PTEFlag = PTEFlag(0);
-    // Normal page table entry settings.
     pub const X     : PTEFlag = PTEFlag(PTEFlag::VALID | PTEFlag::EXECUTE);
     pub const R     : PTEFlag = PTEFlag(PTEFlag::VALID | PTEFlag::READ);
     pub const RW    : PTEFlag = PTEFlag(PTEFlag::VALID | PTEFlag::READ | PTEFlag::WRITE);
@@ -224,6 +223,7 @@ impl PTEFlag {
     pub const RWX   : PTEFlag = PTEFlag(PTEFlag::VALID | PTEFlag::READ | PTEFlag::WRITE | PTEFlag::EXECUTE);
     pub const NEXT  : PTEFlag = PTEFlag(PTEFlag::VALID);
 
+    /** Return the flag bits. */
     pub fn bits(&self) -> u64 { self.0 }
 }
 
@@ -238,6 +238,9 @@ impl PageTableEntry {
 }
 
 impl PageAddress {
+    pub fn new_pagetable() -> Self {
+        unsafe { allocate_zero() }
+    }
     pub const fn new_u64(num : u64) -> Self {
         PageAddress(num >> 12)
     }
@@ -256,7 +259,7 @@ impl PageAddress {
     unsafe fn get_entry(&self, x : usize) -> &mut PageTableEntry {
         &mut *((self.0 << 12) as *mut PageTableEntry).wrapping_add(x)
     }
-    /** Return Inner bits. */
+    /** Return the index of a physical page. */
     pub fn bits(&self) -> u64 { self.0 }
 }
 
@@ -271,4 +274,21 @@ impl core::ops::IndexMut<usize> for PageAddress {
     fn index_mut(&mut self, x : usize) -> &mut PageTableEntry {
         unsafe { self.get_entry(x) }
     }
+}
+
+unsafe fn get_kernel_page_num(x : usize) -> usize {
+    extern "C" { fn skernel(); }
+    return (x - skernel as usize) / PAGE_SIZE;
+}
+
+unsafe fn set_huge(mut page : PageAddress, i : usize, flag : PTEFlag) {
+    page[i].set_entry(PageAddress::new_huge(i as _), flag);
+}
+
+unsafe fn set_medium(mut page : PageAddress, i : usize, j : usize, flag : PTEFlag) {
+    page[j].set_entry(PageAddress::new_medium(i as _, j as _), flag);
+}
+
+unsafe fn set_normal(mut page : PageAddress, i : usize, j : usize, k : usize, flag : PTEFlag) {
+    page[k].set_entry(PageAddress::new_normal(i as _, j as _, k as _), flag);
 }

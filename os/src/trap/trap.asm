@@ -1,26 +1,13 @@
+.equ TRAP_CONTEXT_ADDRESS, -4096 * 2
+
     .section .text.trap
     .globl user_handle
-    .align 8
+    # Align to a page
+    .align 12
 user_handle:
-/*
-    This trampoline should be placed at 0x80001000.
-    This page has the same physical address as virtual one.
-
-    Trap frame layout (at user-space virtual 0x80000000):
-        [0x000, 0x0f8): 31 General purpose registers.
-        [0x0f8, 0x100): User's program counter.
-        [0x100, 0x108): Thread number of the process.
-        [0x108, 0x110): Kernel stack pointer.
-
-    This trampoline page (0x80001000) should be executable-only.
-    That trap frame page (0x80000000) should be read/write-only.
-    Both page can only be accessed in supervisor mode, which
-    means the U bit of those 2 pages should be 0.
-*/
-
     # Change to trap frame
     csrw sscratch, sp
-    li sp, 0x80000000
+    li sp, TRAP_CONTEXT_ADDRESS
 
     # Save all registers on user's trap frame
     sd ra, 0(sp)
@@ -56,6 +43,7 @@ user_handle:
     sd t4, 216(sp)
     sd t5, 224(sp)
     sd t6, 232(sp)
+    # Complete saving all registers
 
     csrr t0, sscratch
     csrr t1, sepc
@@ -65,37 +53,28 @@ user_handle:
 
     ld tp, 256(sp)  # Thread number
     ld sp, 264(sp)  # Kernel stack pointer
+    ld t2, 272(sp)  # Kernel satp
 
-    # Wait old memory operation to finish
-    # Then, disable page table. Our kernel is not using it.
     sfence.vma zero, zero
-    csrw satp, zero
+    csrw satp, t2
     sfence.vma zero, zero
 
-    # Jump to the real user trap handler
     la t0, user_trap
     jr t0
 
-user_handle.end:
-
     .globl user_handle_end
-    .align 8
+    .align 3
 user_handle_end:
 
     .globl user_return
-    .align 8
+    .align 3
 user_return:
-/*
-    This function should be placed at 0x80001800.
-    It shares the same page with trampoline page.
-*/
-
     # Switch to user's page-table first.
     sfence.vma zero, zero
     csrw satp, a0
     sfence.vma zero, zero
 
-    li sp, 0x80000000
+    li sp, TRAP_CONTEXT_ADDRESS
 
     # Restore all registers from user's trap frame
     ld ra, 0(sp)
@@ -125,29 +104,26 @@ user_return:
     ld s8, 176(sp)
     ld s9, 184(sp)
 
+    ld t6, 248(sp)  # User's program counter
+    csrw sepc, t6   # Restore user's program counter
+
     ld s10,192(sp)
     ld s11,200(sp)
     ld t3, 208(sp)
     ld t4, 216(sp)
     ld t5, 224(sp)
-
-    ld t6, 248(sp)  # User's program counter
-    csrw sepc, t6
-
     ld t6, 232(sp)
     ld sp, 240(sp)  # User's stack pointer
 
     # Return to user's program
     sret
-user_return.end:
 
     .globl user_return_end
-    .align 8
+    .align 3
 user_return_end:
 
-
     .globl core_handle
-    .align 8
+    .align 3
 core_handle:
     addi sp, sp, -192
 
@@ -199,10 +175,9 @@ core_handle:
 
     addi sp, sp, 192
     sret
-core_handle.end:
 
     .globl time_handle
-    .align 8
+    .align 3
 time_handle:
     # Why I choose a0 ~ a3 ?
     # Because they can help generate compressed instruction.
@@ -220,7 +195,7 @@ time_handle:
     add a3, a3, a2  # New MTIMECMP value
     sd a3, 0(a1)    # Update new MTIMECMP
 
-    # Do not copy xv6's code.
+    # Do not copy xv6's code :)
     # - li a0, 2 
     # - csrw sip, a0
     # That will involve one more instruction.
@@ -235,11 +210,39 @@ time_handle:
     csrrw a0, mscratch, a0  # Swap back
 
     mret
-time_handle.end:
 
-    .globl return_to_user
-    .align 8
-return_to_user:
-    li t0, 0x80001800   # call user_return
-    jr t0
-return_to_user.end:
+    .globl switch_context
+    .align 3
+switch_context:
+    sd ra, 0(a0)
+    sd sp, 8(a0)
+    sd s0, 16(a0)
+    sd s1, 24(a0)
+    sd s2, 32(a0)
+    sd s3, 40(a0)
+    sd s4, 48(a0)
+    sd s5, 56(a0)
+    sd s6, 64(a0)
+    sd s7, 72(a0)
+    sd s8, 80(a0)
+    sd s9, 88(a0)
+    sd s10,96(a0)
+    sd s11,104(a0)
+
+    ld ra, 0(a1)
+    ld sp, 8(a1)
+    ld s0, 16(a1)
+    ld s1, 24(a1)
+    ld s2, 32(a1)
+    ld s3, 40(a1)
+    ld s4, 48(a1)
+    ld s5, 56(a1)
+    ld s6, 64(a1)
+    ld s7, 72(a1)
+    ld s8, 80(a1)
+    ld s9, 88(a1)
+    ld s10,96(a1)
+    ld s11,104(a1)
+
+    ret
+switch_context_end:

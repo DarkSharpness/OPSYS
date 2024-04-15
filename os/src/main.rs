@@ -30,9 +30,8 @@ unsafe fn os_main() {
         driver::shutdown();
         trap::user_trap();
     }
-
-
 }
+
 
 #[inline(always)]
 fn init_tid_and_end_address() {
