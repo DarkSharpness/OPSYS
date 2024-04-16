@@ -9,20 +9,20 @@ const MTIMECMP : * mut u64  = (BASE + 0x4000) as _;
 use super::get_tid;
 
 #[repr(C)]
-pub struct Timer {
+struct Timer {
     temporary       : [u64 ; 3],
     pub mtimecmp    : u64,
     pub interval    : u64,
 }
 
-pub static mut TIME_SCRATCH : [Timer; NCPU] =
+static mut TIME_SCRATCH : [Timer; NCPU] =
     [Timer{ temporary : [0; 3], mtimecmp : 0, interval : 0, } ; NCPU];
 
 pub unsafe fn init() {
     extern "C" { fn time_handle(); }
 
     let tid = get_tid();
-    let interval = 1 << 22; // About 0.1s on QEMU
+    let interval = 1 << 20; // About 0.1s on QEMU
     let mtimecmp = MTIMECMP.wrapping_add(tid);
     let mtime    = MTIME.wrapping_add(tid);
     let time_scratch = &mut TIME_SCRATCH[tid];
@@ -42,3 +42,15 @@ pub unsafe fn init() {
     mstatus::set_mpie();
 }
 
+pub struct Time(u64);
+
+pub unsafe fn set_timer_interval(interval : Time) {
+    let tid = get_tid();
+    let time_scratch = &mut TIME_SCRATCH[tid];
+    time_scratch.interval = interval.0;
+}
+
+impl Time {
+    pub fn second(s : u64) -> Self { Time(s * 10000000) }
+    pub fn millisecond(ms : u64) -> Self { Time(ms * 10000) }
+}

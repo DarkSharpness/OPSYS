@@ -3,11 +3,8 @@ use riscv::register::*;
 use crate::driver::get_mem_end;
 use crate::driver::timer;
 use crate::driver::uart;
-use crate::layout::*;
 use crate::alloc;
 use super::get_tid;
-
-static mut TIME_SCRATCH: [[u64 ; 5]; NCPU] = [[0 ; 5]; NCPU];
 
 pub unsafe fn init() {
     extern "C" { fn drop_mode(); }

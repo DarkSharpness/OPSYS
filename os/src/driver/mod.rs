@@ -1,6 +1,6 @@
 pub mod uart;
-mod start;
-mod timer;
+pub mod timer;
+pub mod start;
 
 pub use start::init;
 use core::arch::{global_asm, asm};
