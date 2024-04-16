@@ -40,7 +40,7 @@ static GLOBAL_ALLOCATOR : Dummy = Dummy;
  * Call this function to initialize the buddy system.
  * It will automatically set up the page table.
  */
-pub unsafe fn init_alloc(mem_end : usize)  {
+pub unsafe fn init(mem_end : usize)  {
     extern "C" { fn ekernel(); }
     BuddyAllocator::first_init(ekernel as _, mem_end);
     // logging!("Buddy allocator initialized! {} MiB in all!", (PAGE_SIZE << rank) >> 20);

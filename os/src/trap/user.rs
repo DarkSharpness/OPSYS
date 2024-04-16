@@ -1,7 +1,6 @@
-use core::arch;
+use core::arch::asm;
 use riscv::register::*;
 use crate::{alloc::PageAddress, proc::current_process, trap::{set_kernel_trap, set_user_trap}};
-
 use super::{user_handle, user_return, Interrupt, TRAMPOLINE};
 
 /**
@@ -9,9 +8,8 @@ use super::{user_handle, user_return, Interrupt, TRAMPOLINE};
  */
 #[no_mangle]
 pub unsafe fn user_trap() {
-    if sstatus::read().spp() != sstatus::SPP::User {
-        panic!("User trap from supervisor mode");
-    }
+    assert!(sstatus::read().spp() == sstatus::SPP::User,
+        "User trap from supervisor mode. WTF?");
 
     // Set the trap vector to the supervisor vector
     set_kernel_trap();
@@ -23,14 +21,14 @@ pub unsafe fn user_trap() {
             // from time_handle.
             // We should yield out the time.
             Interrupt::SupervisorSoft => {
-                arch::asm!("csrci sip, 2");
+                asm!("csrci sip, 2");
 
-                todo!("Yield out the time interrupt here");
+                warning!("Yield out the time interrupt here");
             },
             Interrupt::SupervisorExternal => {
                 // Acknowledge the external interrupt
                 let tmp = sip::read().bits();
-                arch::asm!("csrw sip, {}", in(reg) tmp & !(1 << 9));
+                asm!("csrw sip, {}", in(reg) tmp & !(1 << 9));
 
                 todo!("Resolve the external interrupt");
             }
@@ -49,7 +47,7 @@ pub unsafe fn user_trap() {
     }
 
     // TODO: Load the satp register of the user
-    // return user_trap_return(satp);
+    return user_trap_return();
 }
 
 pub unsafe fn user_trap_return() {

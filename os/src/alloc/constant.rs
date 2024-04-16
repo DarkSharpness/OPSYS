@@ -1,5 +1,5 @@
-use super::page::PageAddress;
 use crate::alloc::node::List;
+use super::page::PageAddress;
 
 pub const PAGE_BITS : usize = 12;               // Page bits
 pub const PAGE_SIZE : usize = 1 << PAGE_BITS;   // Page size

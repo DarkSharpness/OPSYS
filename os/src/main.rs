@@ -13,21 +13,15 @@ mod alloc;
 mod proc;
 
 use core::arch::{asm, global_asm};
-
-use driver::get_tid;
 use proc::{init_process, run_process};
-
-use crate::driver::{start, uart};
 
 global_asm!(include_str!("entry.asm"));
 
 #[no_mangle]
 unsafe fn os_main() {
     init_tid_and_end_address();
-    start::init();
-    if get_tid() == 0 {
-        init_process();
-    }
+    driver::init();
+    init_process();
     run_process();
     driver::shutdown();
 }

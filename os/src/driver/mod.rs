@@ -1,22 +1,23 @@
-use core::arch;
-
 pub mod uart;
-pub mod start;
+mod start;
+mod timer;
 
-core::arch::global_asm!(include_str!("driver.asm"));
+pub use start::init;
+use core::arch::{global_asm, asm};
 
-// Get the thread ID.
+global_asm!(include_str!("driver.asm"));
+
 #[inline(always)]
 pub fn get_tid() -> usize {
     let tid : usize;
-    unsafe { arch::asm!("mv {}, tp", out(reg) tid); }
+    unsafe { asm!("mv {}, tp", out(reg) tid); }
     return tid;
 }
 
 #[inline(always)]
 pub fn get_mem_end() -> usize {
     let mem_end : usize;
-    unsafe { arch::asm!("mv {}, gp", out(reg) mem_end); }
+    unsafe { asm!("mv {}, gp", out(reg) mem_end); }
     return mem_end;
 }
 

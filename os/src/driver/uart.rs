@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crate::console::print_separator;
 
 type Uptr = * mut u8;
@@ -115,10 +113,7 @@ unsafe fn uart_putc(c : u8) {
     // Release lock?
 }
 
-
-/**
- * Lock holder should call uart_start() to start sending data
- */
+/** Lock holder should call uart_start() to start sending data. */
 unsafe fn uart_start() {
     while HEAD != TAIL {
         // The buffer is full, we cannot put more data
@@ -150,4 +145,3 @@ unsafe fn uart_trap() {
 
     // Release the lock.
 }
-
