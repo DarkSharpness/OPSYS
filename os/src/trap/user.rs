@@ -13,6 +13,8 @@ pub unsafe fn user_trap() {
 
     // Set the trap vector to the supervisor vector
     set_kernel_trap();
+    extern "C" { fn fault_test(); }
+    fault_test();
 
     use scause::{Trap, Interrupt, Exception};
     match scause::read().cause() {
@@ -28,7 +30,7 @@ pub unsafe fn user_trap() {
             Interrupt::SupervisorExternal => {
                 // Acknowledge the external interrupt
                 let tmp = sip::read().bits();
-                asm!("csrw sip, {}", in(reg) tmp & !(1 << 9));
+                asm!("csrc sip, {}", in(reg) tmp & !(1 << 9));
 
                 todo!("Resolve the external interrupt");
             }
