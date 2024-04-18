@@ -29,8 +29,7 @@ pub unsafe fn user_trap() {
             },
             Interrupt::SupervisorExternal => {
                 // Acknowledge the external interrupt
-                let tmp = sip::read().bits();
-                asm!("csrc sip, {}", in(reg) tmp & !(1 << 9));
+                asm!("csrc sip, {}", in(reg) 1 << 9);
 
                 todo!("Resolve the external interrupt");
             }

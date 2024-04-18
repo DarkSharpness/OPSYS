@@ -202,7 +202,7 @@ time_handle:
 
     # This arranges for a supervisor-level interrupt,
     # after this handle returns.
-    csrwi sip, 2
+    csrsi sip, 2
 
     ld a1, 0(a0)    # 8-byte reload
     ld a2, 8(a0)    # 8-byte reload
