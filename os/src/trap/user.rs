@@ -1,5 +1,6 @@
 use core::arch::asm;
 use riscv::register::*;
+use crate::syscall::syscall;
 use crate::{alloc::PageAddress, proc::current_process, trap::{set_kernel_trap, set_user_trap}};
 use super::{user_handle, user_return, Interrupt, TRAMPOLINE};
 
@@ -13,8 +14,11 @@ pub unsafe fn user_trap() {
 
     // Set the trap vector to the supervisor vector
     set_kernel_trap();
-    extern "C" { fn fault_test(); }
-    fault_test();
+
+    // extern "C" { fn fault_test(); }
+    // fault_test();
+
+    let proc = current_process();
 
     use scause::{Trap, Interrupt, Exception};
     match scause::read().cause() {
@@ -40,6 +44,12 @@ pub unsafe fn user_trap() {
             Exception::UserEnvCall => {
                 // Load out the syscall id in a7
                 // Load out the arguments in a0, a1, a2
+                let a0 = (*(*proc).trap_frame).a0;
+                let a1 = (*(*proc).trap_frame).a1;
+                let a2 = (*(*proc).trap_frame).a2;
+                let a7 = (*(*proc).trap_frame).a7;
+
+                syscall(a7 as _, a0, a1, a2);
 
                 todo!("Handle the user syscall");
             }

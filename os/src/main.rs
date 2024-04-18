@@ -11,6 +11,7 @@ mod trap;
 mod layout;
 mod alloc;
 mod proc;
+mod syscall;
 
 use core::arch::{asm, global_asm};
 use proc::{init_process, run_process};
