@@ -1,14 +1,14 @@
 use crate::trap::Interrupt;
 use super::proc::*;
 
-extern "C" { fn switch_context(prev : * const u8, next : * const u8 ); }
+extern "C" { fn switch_context(prev : * mut u8, next : * mut u8 ); }
 
 pub unsafe fn run_process() {
     logging!("Starting process scheduler...");
     loop {
         Interrupt::disable();
 
-        let prev_task   = current_process();
+        let prev_task   = get_process();
         assert!(prev_task.is_null(), "Task should be null");
         let next_task   = next_process();
 
@@ -42,9 +42,7 @@ unsafe fn next_process() -> *mut Process {
     return process;
 }
 
-/**
- * Complete a process.
- */
+/** Complete a process. */
 pub unsafe fn complete_process(process : *mut Process) {
     let manager = get_manager();
     assert!(manager.running_process == process, "Invalid process to complete");

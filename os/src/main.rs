@@ -14,7 +14,6 @@ mod proc;
 mod syscall;
 
 use core::arch::{asm, global_asm};
-use proc::{init_process, run_process};
 
 global_asm!(include_str!("entry.asm"));
 
@@ -22,11 +21,10 @@ global_asm!(include_str!("entry.asm"));
 unsafe fn os_main() {
     init_tid_and_end_address();
     driver::init();
-    init_process();
-    run_process();
+    proc::init_process();
+    proc::run_process();
     driver::shutdown();
 }
-
 
 #[inline(always)]
 fn init_tid_and_end_address() {

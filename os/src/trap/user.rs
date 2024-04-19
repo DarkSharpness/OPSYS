@@ -1,7 +1,7 @@
 use core::arch::asm;
 use riscv::register::*;
-use crate::syscall::syscall;
-use crate::{alloc::PageAddress, proc::current_process, trap::{set_kernel_trap, set_user_trap}};
+use crate::syscall::{sys_yield, syscall};
+use crate::{alloc::PageAddress, proc::get_process, trap::{set_kernel_trap, set_user_trap}};
 use super::{user_handle, user_return, Interrupt, TRAMPOLINE};
 
 /**
@@ -18,7 +18,7 @@ pub unsafe fn user_trap() {
     // extern "C" { fn fault_test(); }
     // fault_test();
 
-    let proc = current_process();
+    let proc = get_process();
 
     use scause::{Trap, Interrupt, Exception};
     match scause::read().cause() {
@@ -29,7 +29,7 @@ pub unsafe fn user_trap() {
             Interrupt::SupervisorSoft => {
                 asm!("csrci sip, 2");
 
-                warning!("Yield out the time interrupt here");
+                sys_yield();
             },
             Interrupt::SupervisorExternal => {
                 // Acknowledge the external interrupt
@@ -70,7 +70,7 @@ pub unsafe fn user_trap_return() {
     /* Set the trap vector back to user vector */
     set_user_trap();
 
-    let process = &mut *current_process();
+    let process = &mut *get_process();
     sepc::write((*process.trap_frame).pc as _);
 
     return return_to_user(process.root);

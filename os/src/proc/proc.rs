@@ -66,31 +66,36 @@ static mut CONTEXT : [Context; NCPU] = [
 
 const TEST_PROGRAM0 : [u32; 4] = [
     0x10000537, // lui a0,0x10000
-    // 0x0310059b, // addiw a1,zero,0x31
-    // 0x00b50023, // sb a1,0(a0)
-    0x10000537, // lui a0,0x10000
-    0x10000537, // lui a0,0x10000
+    0x0310059b, // addiw a1,zero,0x31
+    0x00b50023, // sb a1,0(a0)
     0x0000bfd5, // j 0
 ];
 
-static mut PID_POOL : AtomicU64 = AtomicU64::new(0);
+const TEST_PROGRAM1: [u32; 4] = [
+    0x10000537, // lui a0,0x10000
+    0x0320059b, // addiw a1,zero,0x32
+    0x00b50023, // sb a1,0(a0)
+    0x0000bfd5  // j 0
+];
 
-pub unsafe fn current_process() -> *mut Process {
+/** Return the current running process. */
+pub unsafe fn get_process() -> *mut Process {
     let manager = get_manager();
     return manager.running_process;
 }
 
+/* Add the init process to the manager. */
 pub unsafe fn init_process() {
     let trampoline = get_trampoline();
     vmmap(PAGE_TABLE, TRAMPOLINE, trampoline, PTEFlag::RX);
 
     let manager = get_manager();
-    manager.process_queue.push_back(Process::new_test("Demo Program"));
+    manager.process_queue.push_back(Process::new_test("Demo Program 0", false));
+    manager.process_queue.push_back(Process::new_test("Demo Program 1", true));
 }
 
-
 impl Process {
-    pub unsafe fn new(name : &'static str, parent : * mut Process) -> Process {
+    unsafe fn demo(name : &'static str, parent : * mut Process) -> Process {
         let root    = PageAddress::new_pagetable();
 
         // Map at least one page for user's stack
@@ -137,40 +142,40 @@ impl Process {
         };
     }
 
-    pub unsafe fn new_test(name : &'static str) -> Process {
-        let process = Process::new(name, null_mut());
+    unsafe fn new_test(name : &'static str, which : bool) -> Process {
+        let process = Process::demo(name, null_mut());
         let text = PageAddress::new_zero_page();
         ummap(process.root, 0 , text, PTEFlag::X);
         let mmio = PageAddress::new_u64(0x10000000);
         ummap(process.root, 0x10000000 , mmio , PTEFlag::RW);
 
-        // Copy in TEST_PROGRAM0
         let addr = text.address() as *mut u32;
+        let program = if which { TEST_PROGRAM1 } else { TEST_PROGRAM0 };
         for i in 0..TEST_PROGRAM0.len() {
-            addr.wrapping_add(i).write_volatile(TEST_PROGRAM0[i]);
+            addr.wrapping_add(i).write_volatile(program[i]);
         }
         return process;
     }
+
+    /* Return the inner context. */
+    pub unsafe fn get_context(&mut self) -> *mut Context {
+        return &mut self.context as _;
+    }
 }
 
-
-/**
- * Return the current thread's manager.
- */
+/** Return the current thread's manager. */
 pub unsafe fn get_manager() -> &'static mut ProcessManager {
     return &mut MANAGER[get_tid()];
 }
 
-/**
- * Return the context pointer of the current thread.
- */
+/** Return the context pointer of the current thread. */
 pub unsafe fn get_context() -> *mut Context {
     return &mut CONTEXT[get_tid()];
 }
 
-/**
- * Allocate an available pid for the process.
- */
+static mut PID_POOL : AtomicU64 = AtomicU64::new(0);
+
+/** Allocate an available pid for the process. */
 unsafe fn allocate_pid() -> PidType {
     return PID_POOL.fetch_add(1, core::sync::atomic::Ordering::SeqCst);
 }
