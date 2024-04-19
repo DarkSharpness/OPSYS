@@ -50,6 +50,13 @@ pub unsafe fn set_timer_interval(interval : Time) {
     time_scratch.interval = interval.0;
 }
 
+pub unsafe fn set_timer_next() {
+    let tid = get_tid();
+    let mtimecmp = MTIMECMP.wrapping_add(tid);
+    let mtime    = MTIME.wrapping_add(tid);
+    *mtimecmp = *mtime + TIME_SCRATCH[tid].interval;
+}
+
 impl Time {
     pub fn second(s : u64) -> Self { Time(s * 10000000) }
     pub fn millisecond(ms : u64) -> Self { Time(ms * 10000) }
