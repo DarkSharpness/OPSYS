@@ -4,11 +4,11 @@ use crate::alloc::get_mem_end;
 use super::{buddy::BuddyAllocator, constant::*};
 
 #[derive(Clone, Copy)]
-pub struct PageAddress(u64);
+pub struct PageAddress(usize);
 #[derive(Clone, Copy)]
-pub struct PageTableEntry(u64);
+pub struct PageTableEntry(usize);
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub struct PTEFlag(u64);
+pub struct PTEFlag(usize);
 
 /**
  * Init the page table with 3 size of pages.
@@ -113,7 +113,7 @@ unsafe fn init_kernel_page(leaf : PageAddress) {
 /**
  * Build up a mapping from a virtual address to a physical address at given page table.
  */
-pub unsafe fn vmmap(mut root : PageAddress, __virt : u64, __phys : PageAddress, __flag : PTEFlag) {
+pub unsafe fn vmmap(mut root : PageAddress, __virt : usize, __phys : PageAddress, __flag : PTEFlag) {
     let virt = (__virt >> 12) as usize;
     let ppn0 = (virt >> 18) & 0x1FF;
     let ppn1 = (virt >> 9)  & 0x1FF;
@@ -150,7 +150,7 @@ pub unsafe fn vmmap(mut root : PageAddress, __virt : u64, __phys : PageAddress, 
 /**
  * Build up a mapping from user virtual address to a physical address at given page table.
  */
-pub unsafe fn ummap(root : PageAddress, __virt : u64, __phys : PageAddress, __flag : PTEFlag) {
+pub unsafe fn ummap(root : PageAddress, __virt : usize, __phys : PageAddress, __flag : PTEFlag) {
     let __flag = PTEFlag(__flag.0 | PTEFlag::USER);
     return vmmap(root, __virt, __phys, __flag);
 }
@@ -163,15 +163,15 @@ pub unsafe fn ummap(root : PageAddress, __virt : u64, __phys : PageAddress, __fl
  */
 
 impl PTEFlag {
-    const VALID    : u64   = 1 << 0;
-    const READ     : u64   = 1 << 1;
-    const WRITE    : u64   = 1 << 2;
-    const EXECUTE  : u64   = 1 << 3;
-    const USER     : u64   = 1 << 4;
-    const GLOBAL   : u64   = 1 << 5;
-    const ACCESSED : u64   = 1 << 6;
-    const DIRTY    : u64   = 1 << 7;
-    const RESERVED : u64   = 3 << 8;
+    const VALID    : usize   = 1 << 0;
+    const READ     : usize   = 1 << 1;
+    const WRITE    : usize   = 1 << 2;
+    const EXECUTE  : usize   = 1 << 3;
+    const USER     : usize   = 1 << 4;
+    const GLOBAL   : usize   = 1 << 5;
+    const ACCESSED : usize   = 1 << 6;
+    const DIRTY    : usize   = 1 << 7;
+    const RESERVED : usize   = 3 << 8;
 
     pub const INVALID   : PTEFlag = PTEFlag(0);
     pub const X     : PTEFlag = PTEFlag(PTEFlag::VALID | PTEFlag::EXECUTE);
@@ -182,7 +182,7 @@ impl PTEFlag {
     pub const NEXT  : PTEFlag = PTEFlag(PTEFlag::VALID);
 
     /** Return the flag bits. */
-    pub fn bits(self) -> u64 { self.0 }
+    pub fn bits(self) -> usize { self.0 }
 
     /** Debug output. */
     fn debug(self) {
@@ -199,7 +199,7 @@ impl PTEFlag {
 }
 
 impl PageTableEntry {
-    const MASK : u64 = 0x3FF;
+    const MASK : usize = 0x3FF;
     pub fn set_entry(&mut self, addr : PageAddress, flag : PTEFlag) {
         self.0 = (addr.bits()) << 10 | flag.bits();
     }
@@ -219,18 +219,18 @@ impl PageAddress {
     /** Return an uninitialized page with random bits. */
     pub fn new_rand_page() -> Self { unsafe { allocate_page() } }
     /** Return a page with given physical address entry. */
-    pub const fn new_u64(num : u64) -> Self { PageAddress(num >> 12) }
+    pub const fn new_usize(num : usize) -> Self { PageAddress(num >> 12) }
 
     fn new_ptr(num : *mut u8) -> Self {
-        PageAddress((num as u64) >> 12)
+        PageAddress((num as usize) >> 12)
     }
-    fn new_huge(ppn0 : u64) -> Self {
+    fn new_huge(ppn0 : usize) -> Self {
         PageAddress(ppn0 << 18)
     }
-    fn new_medium(ppn0 : u64, ppn1 : u64) -> Self {
+    fn new_medium(ppn0 : usize, ppn1 : usize) -> Self {
         PageAddress(ppn0 << 18 | ppn1 << 9)
     }
-    fn new_normal(ppn0 : u64, ppn1 : u64, ppn2 : u64) -> Self {
+    fn new_normal(ppn0 : usize, ppn1 : usize, ppn2 : usize) -> Self {
         PageAddress(ppn0 << 18 | ppn1 << 9 | ppn2)
     }
     unsafe fn get_entry(&self, x : usize) -> &mut PageTableEntry {
@@ -238,7 +238,7 @@ impl PageAddress {
     }
 
     /** Return the index of a physical page. */
-    pub fn bits(self) -> u64 { self.0 }
+    pub fn bits(self) -> usize { self.0 }
     /** Return the physical address. */
     pub fn address(self) -> *mut u8 { (self.0 << 12) as *mut u8 }
 
@@ -320,7 +320,7 @@ unsafe fn allocate_zero() -> PageAddress {
     warning!("Zero-filled page allocated at {:p}", addr);
 
     /* Reset the page to zero. */
-    let temp = addr as *mut u64;
+    let temp = addr as *mut usize;
     for i in 0..512 { *temp.wrapping_add(i) = 0; }
 
     return PageAddress::new_ptr(addr);

@@ -1,44 +1,44 @@
 use crate::alloc::{PageAddress, PAGE_TABLE};
 #[repr(C)]
 pub struct TrapFrame {
-    pub ra  : u64,
-    pub gp  : u64,
-    pub tp  : u64,
-    pub t0  : u64,
-    pub t1  : u64,
-    pub t2  : u64,
-    pub s0  : u64,
-    pub s1  : u64,
+    pub ra  : usize,
+    pub gp  : usize,
+    pub tp  : usize,
+    pub t0  : usize,
+    pub t1  : usize,
+    pub t2  : usize,
+    pub s0  : usize,
+    pub s1  : usize,
 
-    pub a0  : u64,
-    pub a1  : u64,
-    pub a2  : u64,
-    pub a3  : u64,
-    pub a4  : u64,
-    pub a5  : u64,
-    pub a6  : u64,
-    pub a7  : u64,
+    pub a0  : usize,
+    pub a1  : usize,
+    pub a2  : usize,
+    pub a3  : usize,
+    pub a4  : usize,
+    pub a5  : usize,
+    pub a6  : usize,
+    pub a7  : usize,
 
-    pub s2  : u64,
-    pub s3  : u64,
-    pub s4  : u64,
-    pub s5  : u64,
-    pub s6  : u64,
-    pub s7  : u64,
-    pub s8  : u64,
-    pub s9  : u64,
+    pub s2  : usize,
+    pub s3  : usize,
+    pub s4  : usize,
+    pub s5  : usize,
+    pub s6  : usize,
+    pub s7  : usize,
+    pub s8  : usize,
+    pub s9  : usize,
 
-    pub s10 : u64,
-    pub s11 : u64,
-    pub t3  : u64,
-    pub t4  : u64,
-    pub t5  : u64,
-    pub t6  : u64,
-    pub sp  : u64,
-    pub pc  : u64,
+    pub s10 : usize,
+    pub s11 : usize,
+    pub t3  : usize,
+    pub t4  : usize,
+    pub t5  : usize,
+    pub t6  : usize,
+    pub sp  : usize,
+    pub pc  : usize,
 
-    pub thread_number   : u64,  // real thread number
-    pub kernel_satp     : u64,  // kernel page table
-    pub kernel_trap     : u64,  // kernel trap handler
-    pub kernel_stack    : u64,  // kernel stack pointer
+    pub thread_number   : usize,  // real thread number
+    pub kernel_satp     : usize,  // kernel page table
+    pub kernel_trap     : usize,  // kernel trap handler
+    pub kernel_stack    : usize,  // kernel stack pointer
 }

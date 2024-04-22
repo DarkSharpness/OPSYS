@@ -11,8 +11,8 @@ use crate::alloc::{vmmap, PTEFlag, PageAddress, PAGE_SIZE};
 
 core::arch::global_asm!(include_str!("trap.asm"));
 
-pub const TRAMPOLINE : u64 = (!PAGE_SIZE + 1) as u64;
-pub const TRAP_FRAME : u64 = TRAMPOLINE - (PAGE_SIZE as u64);
+pub const TRAMPOLINE : usize = (!PAGE_SIZE + 1) as usize;
+pub const TRAP_FRAME : usize = TRAMPOLINE - (PAGE_SIZE as usize);
 
 extern "C" {
     fn core_handle();
@@ -35,7 +35,7 @@ unsafe fn set_user_trap() {
 
 /** Return the trampoline physical address */
 pub unsafe fn get_trampoline() -> PageAddress {
-    return PageAddress::new_u64(user_handle as _)
+    return PageAddress::new_usize(user_handle as _)
 }
 
 pub struct Interrupt;
