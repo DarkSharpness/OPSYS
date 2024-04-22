@@ -1,5 +1,6 @@
 use core::arch::asm;
 use riscv::register::*;
+use crate::driver::plic;
 use crate::syscall::{sys_yield, syscall};
 use crate::{alloc::PageAddress, proc::get_process, trap::{set_kernel_trap, set_user_trap}};
 use super::{user_handle, user_return, Interrupt, TRAMPOLINE};
@@ -34,6 +35,8 @@ pub unsafe fn user_trap() {
             Interrupt::SupervisorExternal => {
                 // Acknowledge the external interrupt
                 asm!("csrc sip, {}", in(reg) 1 << 9);
+
+                plic::resolve();
 
                 todo!("Resolve the external interrupt");
             }
