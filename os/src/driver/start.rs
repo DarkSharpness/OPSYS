@@ -1,7 +1,7 @@
 use core::{arch::asm, mem::size_of};
 use riscv::register::*;
 use crate::driver::get_mem_end;
-use crate::driver::plic;
+// use crate::driver::plic;
 use crate::driver::timer;
 use crate::driver::uart;
 use crate::alloc;
@@ -19,8 +19,6 @@ pub unsafe fn init() {
         // Set up the buddy allocator and establish page table.
         alloc::init(get_mem_end());
     }
-    // Initialize the PLIC
-    plic::init();
 
     // Set the interrupt delegation
     init_intr();

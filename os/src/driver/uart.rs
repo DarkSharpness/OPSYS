@@ -74,11 +74,6 @@ pub unsafe fn sync_putc(c : u8) {
     THR.write_volatile(c);
 }
 
-pub unsafe fn sync_getc() -> i32 {
-    while (LSR.read_volatile() & lsr::RX_DONE) == 0 {}
-    RBR.read_volatile() as i32
-}
-
 /**
  * Get the char from UART
  * If there is no char in the buffer, return None
@@ -127,8 +122,9 @@ unsafe fn uart_start() {
     }
 }
 
+/// Handle the UART interrupt
 #[no_mangle]
-unsafe fn uart_trap() {
+pub unsafe fn uart_trap() {
     loop {
         match uart_getc() {
             Some(c) => {

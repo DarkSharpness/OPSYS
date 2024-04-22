@@ -1,5 +1,7 @@
 use riscv::register::sie;
 
+use crate::driver::uart;
+
 use super::get_tid;
 
 #[derive(Clone, Copy)]
@@ -30,17 +32,12 @@ pub unsafe fn resolve() {
     match irq {
         10 => {
             logging!("UART0 IRQ");
-            // uart::handle();
+            uart::uart_trap();
         },
         1 => todo!("VIRTIO IRQ"),
         _ => panic!("Unknown IRQ: {}", irq)
     }
     supervisor.set_claim(irq);
-}
-
-unsafe fn get_claim() -> u32 {
-    let supervisor = Plic::new(Mode::Supervisor);
-    return supervisor.get_claim();
 }
 
 pub unsafe fn init() {
