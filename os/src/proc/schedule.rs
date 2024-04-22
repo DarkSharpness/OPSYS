@@ -18,7 +18,7 @@ pub unsafe fn run_process() {
         switch_context(old_context as _, new_context as _);
         complete_process(next_task);
 
-        Interrupt::enable();
+        // Interrupt::enable();
     }
 }
 
