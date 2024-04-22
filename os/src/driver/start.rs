@@ -42,11 +42,11 @@ unsafe fn init_bss() {
     // A relatively faster way to clear the bss section
     // Since each section is 4096-byte aligned,
     // 8-byte stepping is safe enough.
-    let mut beg = sbss as u64;
-    let     end = ebss as u64;
+    let mut beg = sbss as usize;
+    let     end = ebss as usize;
     while beg != end {
-        (beg as *mut u64).write(0);
-        beg += size_of::<u64>() as u64;
+        (beg as *mut usize).write(0);
+        beg += size_of::<usize>() as usize;
     }
 }
 

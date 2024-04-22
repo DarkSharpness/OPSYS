@@ -1,7 +1,7 @@
 extern crate alloc;
 
 use core::ptr::null_mut;
-use core::sync::atomic::AtomicU64;
+use core::sync::atomic::AtomicUsize;
 
 use alloc::collections::VecDeque;
 use alloc::str;
@@ -16,12 +16,12 @@ use super::USER_STACK;
 
 #[repr(C)]
 pub struct Context {
-    ra  : u64,
-    sp  : u64,
-    saved_registers : [u64; 12],
+    ra  : usize,
+    sp  : usize,
+    saved_registers : [usize; 12],
 }
 
-type PidType = u64;
+type PidType = usize;
 
 pub enum ProcessStatus {
     SLEEPING, // blocked
@@ -100,7 +100,7 @@ impl Process {
 
         // Map at least one page for user's stack
         let stack_page = PageAddress::new_rand_page();
-        let user_stack = USER_STACK - (PAGE_SIZE as u64);
+        let user_stack = USER_STACK - (PAGE_SIZE as usize);
         ummap(root, user_stack, stack_page, PTEFlag::RW);
 
         message!("Process {} created with root {:#x}", name, root.address() as usize);
@@ -128,7 +128,7 @@ impl Process {
         trap_frame.kernel_trap   = user_trap as _;
 
         let context = Context {
-            ra              : user_trap_return as u64,
+            ra              : user_trap_return as usize,
             sp              : core_stack as _,
             saved_registers : [0; 12],
         };
@@ -146,7 +146,7 @@ impl Process {
         let process = Process::demo(name, null_mut());
         let text = PageAddress::new_zero_page();
         ummap(process.root, 0 , text, PTEFlag::X);
-        let mmio = PageAddress::new_u64(0x10000000);
+        let mmio = PageAddress::new_usize(0x10000000);
         ummap(process.root, 0x10000000 , mmio , PTEFlag::RW);
 
         let addr = text.address() as *mut u32;
@@ -173,7 +173,7 @@ pub unsafe fn get_context() -> *mut Context {
     return &mut CONTEXT[get_tid()];
 }
 
-static mut PID_POOL : AtomicU64 = AtomicU64::new(0);
+static mut PID_POOL : AtomicUsize = AtomicUsize::new(0);
 
 /** Allocate an available pid for the process. */
 unsafe fn allocate_pid() -> PidType {

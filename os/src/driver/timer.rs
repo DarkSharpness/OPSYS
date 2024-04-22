@@ -1,18 +1,18 @@
 use riscv::register::*;
 use crate::layout::NCPU;
 
-type Uptr = * mut u64;
-const BASE     :       u64  = 0x2000000;
-const MTIME    : * mut u64  = (BASE + 0xBFF8) as _;
-const MTIMECMP : * mut u64  = (BASE + 0x4000) as _;
+type Uptr = * mut usize;
+const BASE     :       usize  = 0x2000000;
+const MTIME    : * mut usize  = (BASE + 0xBFF8) as _;
+const MTIMECMP : * mut usize  = (BASE + 0x4000) as _;
 
 use super::get_tid;
 
 #[repr(C)]
 struct Timer {
-    temporary       : [u64 ; 3],
-    pub mtimecmp    : u64,
-    pub interval    : u64,
+    temporary       : [usize ; 3],
+    pub mtimecmp    : usize,
+    pub interval    : usize,
 }
 
 static mut TIME_SCRATCH : [Timer; NCPU] =
@@ -42,7 +42,7 @@ pub unsafe fn init() {
     mstatus::set_mpie();
 }
 
-pub struct Time(u64);
+pub struct Time(usize);
 
 pub unsafe fn set_timer_interval(interval : Time) {
     let tid = get_tid();
@@ -58,6 +58,6 @@ pub unsafe fn set_timer_next() {
 }
 
 impl Time {
-    pub fn second(s : u64) -> Self { Time(s * 10000000) }
-    pub fn millisecond(ms : u64) -> Self { Time(ms * 10000) }
+    pub fn second(s : usize) -> Self { Time(s * 10000000) }
+    pub fn millisecond(ms : usize) -> Self { Time(ms * 10000) }
 }
