@@ -15,11 +15,16 @@ pub unsafe fn user_trap() {
 
     // Set the trap vector to the supervisor vector
     set_kernel_trap();
-
+  
     // extern "C" { fn fault_test(); }
     // fault_test();
 
     let proc = get_process();
+
+    let s0 = (*(*proc).trap_frame).s0;
+    if s0 != 0 {
+        logging!("User s0: {}", (*(*proc).trap_frame).s0);
+    }
 
     use scause::{Trap, Interrupt, Exception};
     match scause::read().cause() {
@@ -34,11 +39,9 @@ pub unsafe fn user_trap() {
             },
             Interrupt::SupervisorExternal => {
                 // Acknowledge the external interrupt
-                asm!("csrc sip, {}", in(reg) 1 << 9);
-
                 plic::resolve();
 
-                todo!("Resolve the external interrupt");
+                asm!("csrc sip, {}", in(reg) 1 << 9);
             }
             _ => panic!("Unable to resolve interrupt {:?}", interrupt),   
         },
@@ -83,8 +86,8 @@ unsafe fn return_to_user(base : PageAddress) {
     let satp = base.bits() | (8 << 60); // Sv39
     let func = TRAMPOLINE + (user_return as usize - user_handle as usize);
 
-    message!("Returning to user space with satp: {:#x}", satp);
-    message!("Returning to user space with addr: {:#x}", func);
+    // message!("Returning to user space with satp: {:#x}", satp);
+    // message!("Returning to user space with addr: {:#x}", func);
 
     type CallType = fn(usize);
     let ptr  = &func as *const _;

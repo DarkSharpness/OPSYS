@@ -65,10 +65,10 @@ static mut CONTEXT : [Context; NCPU] = [
     }; NCPU];
 
 const TEST_PROGRAM0 : [u32; 4] = [
-    0x10000537, // lui a0,0x10000
-    0x0310059b, // addiw a1,zero,0x31
-    0x00b50023, // sb a1,0(a0)
-    0x0000bfd5, // j 0
+    0x140413, // addi s0, s0 1
+    0x140413, // addi s0, s0 1
+    0x140413, // addi s0, s0 1
+    0x0000bfd5,                             // j 0
 ];
 
 const TEST_PROGRAM1: [u32; 4] = [

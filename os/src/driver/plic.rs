@@ -1,5 +1,3 @@
-use riscv::register::sie;
-
 use crate::driver::uart;
 
 use super::get_tid;
@@ -26,14 +24,12 @@ const fn supported_mode() -> [Mode; 2] {
 
 struct Plic { id : usize }
 
+/** Resolve a plic. */
 pub unsafe fn resolve() {
     let supervisor = Plic::new(Mode::Supervisor);
     let irq = supervisor.get_claim();
     match irq {
-        10 => {
-            logging!("UART0 IRQ");
-            uart::uart_trap();
-        },
+        10 => uart::uart_trap(),
         1 => todo!("VIRTIO IRQ"),
         _ => panic!("Unknown IRQ: {}", irq)
     }
@@ -41,8 +37,6 @@ pub unsafe fn resolve() {
 }
 
 pub unsafe fn init() {
-    sie::clear_sext();
-
     // Disable all interrupts from machine mode.
     let machine = Plic::new(Mode::Machine);
     machine.set_threshold(1);
@@ -56,9 +50,6 @@ pub unsafe fn init() {
         supervisor.enable(irq);
         supervisor.set_priority(irq, 1);
     }
-
-    // Re-enable external interrupts.
-    sie::set_sext();
 }
 
 impl Plic {
