@@ -1,4 +1,3 @@
-#![allow(unused_imports)]
 mod node;
 mod page;
 mod buddy;

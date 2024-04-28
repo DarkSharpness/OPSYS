@@ -1,4 +1,3 @@
-use crate::alloc::{PageAddress, PAGE_TABLE};
 #[repr(C)]
 pub struct TrapFrame {
     pub ra  : usize,

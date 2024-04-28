@@ -1,4 +1,3 @@
-#![allow(unused_imports)]
 mod user;
 mod kernel;
 mod frame;
@@ -7,7 +6,7 @@ pub use user::*;
 pub use frame::TrapFrame;
 
 use riscv::register::*;
-use crate::alloc::{vmmap, PTEFlag, PageAddress, PAGE_SIZE};
+use crate::alloc::{PageAddress, PAGE_SIZE};
 
 core::arch::global_asm!(include_str!("trap.asm"));
 
