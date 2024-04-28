@@ -1,19 +1,102 @@
 use crate::console::print_separator;
 
-type Uptr = * mut u8;
-const UART : Uptr = 0x1000_0000 as Uptr; // 1 << (7 * 4)
-const RBR : Uptr = UART.wrapping_add(0x0);
-const THR : Uptr = UART.wrapping_add(0x0);
-const DLL : Uptr = UART.wrapping_add(0x0);
-const DLM : Uptr = UART.wrapping_add(0x1);
-const IER : Uptr = UART.wrapping_add(0x1);
-const IIR : Uptr = UART.wrapping_add(0x2);
-const FCR : Uptr = UART.wrapping_add(0x2);
-const LCR : Uptr = UART.wrapping_add(0x3);
-const MCR : Uptr = UART.wrapping_add(0x4);
-const LSR : Uptr = UART.wrapping_add(0x5);
-const MSR : Uptr = UART.wrapping_add(0x6);
-const SCR : Uptr = UART.wrapping_add(0x7);
+struct Uart <const BASE : usize>;
+
+pub unsafe fn init() { UART.init(); }
+
+/**
+ * Synchornized putc.
+ * Used for kernel debugging.
+ */
+pub unsafe fn sync_putc(c : u8) {
+    while UART.can_write() == false {}
+    return UART.putc(c);
+}
+
+/**
+ * Get the char from UART
+ * If there is no char in the buffer, return None
+ */
+unsafe fn uart_getc() -> Option<u8> {
+    if UART.can_read() == false {
+        return None;
+    } else {
+        return Some(UART.getc());
+    }
+}
+
+fn buffer_empty() -> bool {
+    return true;
+}
+
+unsafe fn uart_putc(_c : u8) {
+    // Put the char into buffer First
+    // put_char_into_buffer(c);
+
+    uart_try_send();
+}
+
+/** Lock holder should call uart_start() to start sending data. */
+unsafe fn uart_try_send() {
+    // This is the consumer side of the buffer.
+    while !buffer_empty() && UART.can_write() {
+        todo!("Take out an element from buffer and send it out.");
+    }
+}
+
+/** Lock holder should call uart_start() to start sending data. */
+unsafe fn uart_try_read() {
+    while UART.can_read() {
+        todo!("Console getchar {}", UART.getc() as char);
+    }
+}
+
+/// Handle the UART interrupt
+#[no_mangle]
+pub unsafe fn uart_trap() {
+    uart_try_read();
+    uart_try_send();
+}
+
+impl <const BASE : usize> Uart <BASE> {
+    const IER : * mut u8 = (BASE as * mut u8).wrapping_add(0x1);
+    const LCR : * mut u8 = (BASE as * mut u8).wrapping_add(0x3);
+    const DLL : * mut u8 = (BASE as * mut u8).wrapping_add(0x0);
+    const DLM : * mut u8 = (BASE as * mut u8).wrapping_add(0x1);
+    const FCR : * mut u8 = (BASE as * mut u8).wrapping_add(0x2);
+    const THR : * mut u8 = (BASE as * mut u8).wrapping_add(0x0);
+    const LSR : * mut u8 = (BASE as * mut u8).wrapping_add(0x5);
+    const RBR : * mut u8 = (BASE as * mut u8).wrapping_add(0x0);
+
+    unsafe fn init(&self) {
+        Self::IER.write_volatile(ier::DISABLE);
+        Self::LCR.write_volatile(lcr::BAUD_LATCH);
+        Self::DLL.write_volatile(dll::BPS_38400);
+        Self::DLM.write_volatile(dlm::BPS_38400);
+        Self::LCR.write_volatile(lcr::WORD_LEN_8);
+        Self::FCR.write_volatile(fcr::ENABLE | fcr::CLEAR);
+        Self::IER.write_volatile(ier::RX_ENABLE | ier::TX_ENABLE);
+
+        logging!("UART initialization done!");
+        print_separator();
+    }
+
+    unsafe fn can_write(&self) -> bool {
+        (Self::LSR.read_volatile() & lsr::TX_IDLE) != 0
+    }
+
+    unsafe fn can_read(&self) -> bool {
+        (Self::LSR.read_volatile() & lsr::RX_DONE) != 0
+    }
+
+    unsafe fn putc(&self, c : u8) {
+        Self::THR.write_volatile(c);
+    }
+
+    unsafe fn getc(&self) -> u8 {
+        return Self::RBR.read_volatile();
+    }
+}
 
 mod fcr {
     pub const ENABLE : u8 = 0x1 << 0;       // Enable FIFOs
@@ -45,99 +128,4 @@ mod lsr {
     pub const RX_DONE : u8 = 0x1 << 0;     // Receiver FIFO not empty
 }
 
-pub unsafe fn init() {
-    // Disable all interrupts
-    IER.write_volatile(ier::DISABLE);
-
-    // Special mode to set baud rate
-    LCR.write_volatile(lcr::BAUD_LATCH);
-
-    // Set baud rate to 38.4 kbps
-    DLL.write_volatile(dll::BPS_38400);
-    DLM.write_volatile(dlm::BPS_38400);
-
-    // Leave special mode and set word length to 8 bits
-    LCR.write_volatile(lcr::WORD_LEN_8);
-
-    // Reset and enable FIFOs
-    FCR.write_volatile(fcr::ENABLE | fcr::CLEAR);
-
-    // Enable receiver and transmitter
-    IER.write_volatile(ier::RX_ENABLE | ier::TX_ENABLE);
-
-    uart_println!("UART initialization done!");
-    print_separator();
-}
-
-pub unsafe fn sync_putc(c : u8) {
-    while (LSR.read_volatile() & lsr::TX_IDLE) == 0 {}
-    THR.write_volatile(c);
-}
-
-/**
- * Get the char from UART
- * If there is no char in the buffer, return None
- */
-pub unsafe fn uart_getc() -> Option<i32> {
-    if (LSR.read_volatile() & lsr::RX_DONE) == 0 {
-        None
-    } else {
-        Some(RBR.read_volatile() as i32)
-    }
-}
-
-const BUFFER_SIZE : usize = 1024;
-static mut BUFFER : [u8; 1024] = [0; BUFFER_SIZE];
-static mut HEAD : usize = 0;
-static mut TAIL : usize = 0;
-
-unsafe fn uart_putc(c : u8) {
-    // Acquire lock?
-
-    while TAIL == HEAD + BUFFER_SIZE {
-        // Buffer is full!
-        // Should sleep
-        todo!("Buffer is full!");
-    }
-
-    BUFFER[TAIL % BUFFER_SIZE] = c;
-    TAIL += 1;
-
-    uart_start();
-
-    // Release lock?
-}
-
-/** Lock holder should call uart_start() to start sending data. */
-unsafe fn uart_start() {
-    while HEAD != TAIL {
-        // The buffer is full, we cannot put more data
-        if (LSR.read_volatile() & lsr::TX_IDLE) == 0 { return; }
-
-        let c = BUFFER[HEAD % BUFFER_SIZE];
-        HEAD += 1;
-
-        // May be wake up some putc waiting for buffer first.
-        THR.write_volatile(c);
-    }
-}
-
-/// Handle the UART interrupt
-#[no_mangle]
-pub unsafe fn uart_trap() {
-    loop {
-        match uart_getc() {
-            Some(c) => {
-                todo!("Console putchar {}", c as u8 as char);
-                // Call console intr
-            },
-            None => break
-        }
-    }
-
-    // Take the lock first.
-
-    uart_start();
-
-    // Release the lock.
-}
+const UART : Uart<0x1000_0000> = Uart{};
