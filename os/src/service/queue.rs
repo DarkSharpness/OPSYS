@@ -15,23 +15,23 @@ impl ServiceQueue {
     }
 
     pub unsafe fn init(&mut self) {
-        self.tail.init();
-        self.head = self.tail;
+        self.tail = new_iter();
+        self.head = self.tail.clone();
     }
 
     pub unsafe fn push(&mut self, process : *mut Process) {
         *self.tail = process;
-        (*process).service = *self.tail as _;
-        self.tail.next_tail();
+        (*process).service = self.tail.clone();
+        next_tail(&mut self.tail);
     }
 
-    pub unsafe fn front(&mut self) -> Option<*mut *mut Process> {
+    pub unsafe fn front(&mut self) -> Option<Iterator> {
         while self.head != self.tail {
             // The service has been closed by the process.
             if (*self.head).is_null() {
-                self.head.next_head();
+                next_head(&mut self.head);
             } else {
-                return Some(*self.head as _);
+                return Some(self.head.clone());
             }
         }
         return None;

@@ -11,10 +11,9 @@ pub struct QueueNode {
     data : [*mut Process; DATA_SIZE],
 }
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone)]
 pub struct Iterator {
-    node : *mut QueueNode,
-    index : usize,
+    data : *mut *mut Process,
 }
 
 static mut FREE : *mut QueueNode = null_mut();
@@ -62,43 +61,57 @@ impl QueueNode {
 impl Deref for Iterator {
     type Target = *mut Process;
     fn deref(&self) -> &Self::Target {
-        unsafe { return &(*self.node).data[self.index]; }
+        unsafe { return &*self.data; }
     }
 }
 
 impl DerefMut for Iterator {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { return &mut (*self.node).data[self.index]; }
+        unsafe { return &mut *self.data; }
     }
 }
 
 impl Iterator {
-    pub fn new() -> Self { return Iterator { node : null_mut(), index : 0 }; }
-
-    /* Initialize the iterator with a new page. */
-    pub unsafe fn init(&mut self) {
-        self.node = QueueNode::new();
-        self.index = 0;
+    pub fn new() -> Self { return Iterator { data : null_mut() }; }
+    pub unsafe fn set_done(&mut self) {
+        *self.data = null_mut();
+        self.data = null_mut();
     }
-
-    pub unsafe fn next_head(&mut self) {
-        self.index += 1;
-        if self.index == DATA_SIZE {
-            let next = (*self.node).next;
-            (*self.node).drop();
-            self.node = next;
-            self.index = 0;
-        }
-    }
-
-    pub unsafe fn next_tail(&mut self) {
-        self.index += 1;
-        if self.index == DATA_SIZE {
-            let next = QueueNode::new();
-            (*self.node).next = next;
-            self.node = next;
-            self.index = 0;
-        }
+    pub unsafe fn in_service(&self) -> bool {
+        return !self.data.is_null();
     }
 }
 
+/** Create a new iterator using the allocator. */
+pub unsafe fn new_iter() -> Iterator {
+    let node = QueueNode::new();
+    let data = (*node).data.as_mut_ptr();
+    return Iterator { data };
+}
+
+/** Find the next head. */
+pub unsafe fn next_head(iter : &mut Iterator) {
+    let addr = iter.data.wrapping_add(1) as usize;
+    if addr % NODE_SIZE == 0 {
+        let prev = (addr as *mut QueueNode).wrapping_sub(1);
+        let next = (*prev).next;
+        iter.data = next as _;
+        (*prev).drop();
+    } else {
+        iter.data = addr as _;
+    }
+}
+
+/** Find the next tail. */
+pub unsafe fn next_tail(iter : &mut Iterator) {
+    let addr = iter.data.wrapping_add(1) as usize;
+    if addr % NODE_SIZE == 0 {
+        let prev = (addr as *mut QueueNode).wrapping_sub(1);
+        let next = QueueNode::new();
+        let data = (*next).data.as_mut_ptr();
+        (*prev).next = data as _;
+        iter.data = data as _;
+    } else {
+        iter.data = addr as _;
+    }
+}

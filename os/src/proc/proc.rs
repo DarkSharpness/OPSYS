@@ -10,6 +10,7 @@ use crate::driver::get_tid;
 use crate::layout::*;
 
 use crate::alloc::{ummap, vmmap, PTEFlag, PageAddress, PAGE_SIZE, PAGE_TABLE};
+use crate::service::Iterator;
 use crate::trap::{get_trampoline, user_trap, user_trap_return, TrapFrame, TRAMPOLINE, TRAP_FRAME};
 
 use super::USER_STACK;
@@ -39,7 +40,7 @@ pub struct Process {
     pub parent      : * mut Process,    // parent process
     pub trap_frame  : * mut TrapFrame,  // trap frame
     pub name        : &'static str,     // process name
-    pub service     : *mut *mut Process,// service list
+    pub service     : Iterator,         // service iterator
     pub context     : Context,          // current context
 }
 
@@ -139,7 +140,7 @@ impl Process {
             exit_code   : 0,
             status      : ProcessStatus::RUNNABLE,
             pid         : allocate_pid(),
-            service     : null_mut(),
+            service     : Iterator::new(),
             context, root, parent, name, trap_frame
         };
     }
