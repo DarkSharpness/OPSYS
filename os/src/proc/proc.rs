@@ -39,6 +39,7 @@ pub struct Process {
     pub parent      : * mut Process,    // parent process
     pub trap_frame  : * mut TrapFrame,  // trap frame
     pub name        : &'static str,     // process name
+    pub service     : *mut *mut Process,// service list
     pub context     : Context,          // current context
 }
 
@@ -138,6 +139,7 @@ impl Process {
             exit_code   : 0,
             status      : ProcessStatus::RUNNABLE,
             pid         : allocate_pid(),
+            service     : null_mut(),
             context, root, parent, name, trap_frame
         };
     }

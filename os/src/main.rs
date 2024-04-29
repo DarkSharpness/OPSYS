@@ -12,6 +12,7 @@ mod layout;
 mod alloc;
 mod proc;
 mod syscall;
+mod service;
 
 use core::arch::{asm, global_asm};
 
