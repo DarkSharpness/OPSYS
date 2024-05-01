@@ -25,11 +25,12 @@ pub struct Context {
 type PidType = usize;
 
 pub enum ProcessStatus {
-    SLEEPING, // blocked
-    RUNNABLE, // ready to run, but not running
-    RUNNING, // running on CPU
-    ZOMBIE, // exited but have to be waited by parent
-    DEAD    // exited and no need to be waited by parent
+    SLEEPING,   // blocked
+    INSERVICE,  // waiting for some service
+    RUNNABLE,   // ready to run, but not running
+    RUNNING,    // running on CPU
+    ZOMBIE,     // exited but have to be waited by parent
+    DEAD        // exited and no need to be waited by parent
 }
 
 pub struct Process {
@@ -153,7 +154,7 @@ impl Process {
         ummap(process.root, 0x10000000 , mmio , PTEFlag::RW);
 
         let addr = text.address() as *mut u32;
-        let program = if which { TEST_PROGRAM1 } else { TEST_PROGRAM0 };
+        let program = if which { TEST_PROGRAM0 } else { TEST_PROGRAM0 };
         for i in 0..TEST_PROGRAM0.len() {
             addr.wrapping_add(i).write_volatile(program[i]);
         }

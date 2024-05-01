@@ -72,7 +72,7 @@ impl DerefMut for Iterator {
 }
 
 impl Iterator {
-    pub fn new() -> Self { return Iterator { data : null_mut() }; }
+    pub const fn new() -> Self { return Iterator { data : null_mut() }; }
     pub unsafe fn set_done(&mut self) {
         *self.data = null_mut();
         self.data = null_mut();
