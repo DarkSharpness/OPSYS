@@ -29,7 +29,7 @@ pub unsafe fn resolve() {
     let supervisor = Plic::new(Mode::Supervisor);
     let irq = supervisor.get_claim();
     match irq {
-        10 => uart::uart_trap(),
+        10 => uart::handle(),
         1 => todo!("VIRTIO IRQ"),
         _ => panic!("Unknown IRQ: {}", irq)
     }

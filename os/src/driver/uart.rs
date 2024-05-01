@@ -1,8 +1,25 @@
+use alloc::collections::VecDeque;
+
 use crate::console::print_separator;
+extern crate alloc;
 
 struct Uart <const BASE : usize>;
+struct CharBuffer(VecDeque<u8>);
 
+const UART : Uart<0x10_000_000> = Uart{};
+static mut READ_BUFFER  : CharBuffer = CharBuffer::new();
+static mut WRITE_BUFFER : CharBuffer = CharBuffer::new();
+
+/** Initialize the UART module. */
 pub unsafe fn init() { UART.init(); }
+
+/** Handle an uart trap */
+#[no_mangle]
+pub unsafe fn handle() {
+    uart_try_read();
+    uart_try_send();
+}
+
 
 /**
  * Synchornized putc.
@@ -14,48 +31,30 @@ pub unsafe fn sync_putc(c : u8) {
 }
 
 /**
- * Get the char from UART
- * If there is no char in the buffer, return None
+ * Try to put a char to the console.
+ * The char will be sent when there's available time.
  */
-unsafe fn uart_getc() -> Option<u8> {
-    if UART.can_read() == false {
-        return None;
-    } else {
-        return Some(UART.getc());
-    }
-}
-
-fn buffer_empty() -> bool {
-    return true;
-}
-
-unsafe fn uart_putc(_c : u8) {
-    // Put the char into buffer First
-    // put_char_into_buffer(c);
-
+pub unsafe fn putc(c : u8) {
+    WRITE_BUFFER.push_char(c);
     uart_try_send();
 }
 
-/** Lock holder should call uart_start() to start sending data. */
 unsafe fn uart_try_send() {
-    // This is the consumer side of the buffer.
-    while !buffer_empty() && UART.can_write() {
-        todo!("Take out an element from buffer and send it out.");
+    while UART.can_write() {
+        match WRITE_BUFFER.take_char() {
+            None    => break,
+            Some(c) => UART.putc(c),
+        }
     }
 }
 
-/** Lock holder should call uart_start() to start sending data. */
 unsafe fn uart_try_read() {
     while UART.can_read() {
-        todo!("Console getchar {}", UART.getc() as char);
+        let c = UART.getc();
+        READ_BUFFER.push_char(c);
+        WRITE_BUFFER.push_char(c);
+        uart_try_send();
     }
-}
-
-/// Handle the UART interrupt
-#[no_mangle]
-pub unsafe fn uart_trap() {
-    uart_try_read();
-    uart_try_send();
 }
 
 impl <const BASE : usize> Uart <BASE> {
@@ -98,6 +97,19 @@ impl <const BASE : usize> Uart <BASE> {
     }
 }
 
+impl CharBuffer {
+    const fn new() -> Self { CharBuffer(VecDeque::new()) }
+
+    /** Whether the buffer is empty. */
+    unsafe fn is_empty(&self) -> bool { self.0.is_empty() }
+
+    /** Put a char to the back of the buffer. */
+    unsafe fn push_char(&mut self, c : u8) { self.0.push_back(c); }
+
+    /** Take a char from the front of the buffer. */
+    unsafe fn take_char(&mut self) -> Option<u8> { self.0.pop_front() }
+}
+
 mod fcr {
     pub const ENABLE : u8 = 0x1 << 0;       // Enable FIFOs
     pub const RX_CLR : u8 = 0x1 << 1;       // Clear receiver FIFO
@@ -127,5 +139,3 @@ mod lsr {
     pub const TX_IDLE : u8 = 0x1 << 5;     // Transmitter idle
     pub const RX_DONE : u8 = 0x1 << 0;     // Receiver FIFO not empty
 }
-
-const UART : Uart<0x1000_0000> = Uart{};

@@ -21,11 +21,6 @@ pub unsafe fn user_trap() {
 
     let proc = get_process();
 
-    let s0 = (*(*proc).trap_frame).s0;
-    if s0 != 0 {
-        logging!("User s0: {}", (*(*proc).trap_frame).s0);
-    }
-
     use scause::{Trap, Interrupt, Exception};
     match scause::read().cause() {
         Trap::Interrupt(interrupt) => match interrupt {
