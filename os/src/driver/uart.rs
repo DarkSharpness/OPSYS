@@ -20,7 +20,6 @@ pub unsafe fn handle() {
     uart_try_send();
 }
 
-
 /**
  * Synchornized putc.
  * Used for kernel debugging.
@@ -28,6 +27,14 @@ pub unsafe fn handle() {
 pub unsafe fn sync_putc(c : u8) {
     while UART.can_write() == false {}
     return UART.putc(c);
+}
+
+/**
+ * Try to get a char from the console.
+ * Return None if no char is available.
+ */
+pub unsafe fn getc() -> Option<u8> {
+    return READ_BUFFER.take_char();
 }
 
 /**
@@ -52,8 +59,6 @@ unsafe fn uart_try_read() {
     while UART.can_read() {
         let c = UART.getc();
         READ_BUFFER.push_char(c);
-        WRITE_BUFFER.push_char(c);
-        uart_try_send();
     }
 }
 
