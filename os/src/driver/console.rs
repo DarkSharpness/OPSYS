@@ -17,7 +17,6 @@ unsafe fn backspace() {
     sync_putc(8 as u8);
 }
 
-
 impl Console {
     const P : u8 = ('P' as u8) - ('@' as u8);   // Print
     const U : u8 = ('U' as u8) - ('@' as u8);   // Remove a line
@@ -27,7 +26,7 @@ impl Console {
     const ENTER  : u8 = 13;                     // Enter
 
     pub const fn new() -> Console {
-        Console {
+        return Console {
             buffer  : VecDeque::new(),
             length  : 0,
         }
@@ -44,7 +43,7 @@ impl Console {
 
         if c == '\n' as u8 || c == Self::D {
             self.length = 0;
-            todo!("Wake up the process");
+            todo!("Wake up reading process");
         } else {
             self.length += 1;
         }
@@ -55,6 +54,7 @@ impl Console {
         self.length = 0;
     }
 
+    /// Remove a character from input
     unsafe fn try_backspace(&mut self) {
         if self.length == 0 { return; }
         backspace();
@@ -62,10 +62,23 @@ impl Console {
         self.length -= 1;
     }
 
+    /// Remove a line of input
+    unsafe fn try_flushline(&mut self) {
+        let mut length = self.length;
+        if length > 0 {
+            self.length = 0;
+            self.buffer.truncate(self.buffer.len() - length);
+            while length > 0 {
+                backspace(); length -= 1;
+            }
+        }
+    }
+
+    /// Try to interpret a control character
     unsafe fn try_interpret(&mut self, c : u8) -> bool {
         match c {
-            Self::P => todo!("Dump the process"),
-            Self::U => todo!("Remove a line"),
+            Self::P                => todo!("Dump the process"),
+            Self::U                => self.try_flushline(),
             Self::H | Self::DELETE => self.try_backspace(),
             _ => return false,
         }
