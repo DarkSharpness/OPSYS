@@ -1,12 +1,13 @@
-use alloc::collections::VecDeque;
+use alloc::{collections::VecDeque, vec::Vec};
 
 use super::uart::sync_putc;
 
 extern crate alloc;
 
 pub struct Console {
-    buffer  : VecDeque<u8>,
-    length  : usize,    // Input length
+    stdin   : VecDeque<u8>,
+    buffer  : Vec<u8>,  // Input buffer
+    length  : usize,    // Last written position
 }
 
 static mut CONSOLE : Console = Console::new();
@@ -27,7 +28,8 @@ impl Console {
 
     pub const fn new() -> Console {
         return Console {
-            buffer  : VecDeque::new(),
+            stdin   : VecDeque::new(),
+            buffer  : Vec::new(),
             length  : 0,
         }
     }
@@ -35,43 +37,41 @@ impl Console {
     pub unsafe fn getc(&mut self, c : u8) {
         if self.try_interpret(c) { return; }
 
-        // Translate the character
-        let c = if c == Self::ENTER { '\n' as u8 } else { c };
+        if c == Self::ENTER || c == Self::D || c == '\n' as u8 || c == '\r' as u8 {
+            sync_putc('\n' as _);
 
-        sync_putc(c);
-        self.buffer.push_back(c);
+            self.stdin.extend(self.buffer.iter());
+            self.stdin.push_back('\n' as _);
 
-        if c == '\n' as u8 || c == Self::D {
+            self.buffer.clear();
             self.length = 0;
+
             todo!("Wake up reading process");
         } else {
-            self.length += 1;
+            sync_putc(c);
+            self.buffer.push(c);
         }
     }
 
     pub unsafe fn putc(&mut self, c : u8) {
         sync_putc(c);
-        self.length = 0;
+        self.length = self.buffer.len();
     }
 
     /// Remove a character from input
     unsafe fn try_backspace(&mut self) {
-        if self.length == 0 { return; }
-        backspace();
-        self.buffer.pop_back();
-        self.length -= 1;
+        if self.length < self.buffer.len() {
+            backspace();
+            self.buffer.pop();
+        }
     }
 
     /// Remove a line of input
     unsafe fn try_flushline(&mut self) {
-        let mut length = self.length;
-        if length > 0 {
-            self.length = 0;
-            self.buffer.truncate(self.buffer.len() - length);
-            while length > 0 {
-                backspace(); length -= 1;
-            }
-        }
+        let  remain = self.buffer.len() - self.length;
+        self.length = 0;        // The length is reset.
+        self.buffer.clear();    // Whatever input is cleared.
+        for _ in 0..remain { backspace(); }
     }
 
     /// Try to interpret a control character
