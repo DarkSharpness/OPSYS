@@ -1,13 +1,15 @@
 use alloc::collections::VecDeque;
 
 use crate::console::print_separator;
+
+use super::console::Console;
 extern crate alloc;
 
 struct Uart <const BASE : usize>;
 struct CharBuffer(VecDeque<u8>);
 
 const UART : Uart<0x10_000_000> = Uart{};
-static mut READ_BUFFER  : CharBuffer = CharBuffer::new();
+static mut CONSOLE      : Console   = Console::new();
 static mut WRITE_BUFFER : CharBuffer = CharBuffer::new();
 
 /** Initialize the UART module. */
@@ -30,14 +32,6 @@ pub unsafe fn sync_putc(c : u8) {
 }
 
 /**
- * Try to get a char from the console.
- * Return None if no char is available.
- */
-pub unsafe fn getc() -> Option<u8> {
-    return READ_BUFFER.take_char();
-}
-
-/**
  * Try to put a char to the console.
  * The char will be sent when there's available time.
  */
@@ -50,15 +44,14 @@ unsafe fn uart_try_send() {
     while UART.can_write() {
         match WRITE_BUFFER.take_char() {
             None    => break,
-            Some(c) => UART.putc(c),
+            Some(c) => CONSOLE.putc(c)
         }
     }
 }
 
 unsafe fn uart_try_read() {
     while UART.can_read() {
-        let c = UART.getc();
-        READ_BUFFER.push_char(c);
+        CONSOLE.getc(UART.getc());
     }
 }
 
