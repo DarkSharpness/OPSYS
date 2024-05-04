@@ -1,6 +1,6 @@
 use riscv::register::*;
 
-use crate::proc::get_process;
+use crate::cpu::current_cpu;
 
 #[no_mangle]
 unsafe fn core_trap() {
@@ -10,7 +10,7 @@ unsafe fn core_trap() {
     warning!("core_trap\n");
     warning!("- cause {:?}", cause);
     warning!("- epc {:#x}", riscv::register::sepc::read());
-    let process = get_process();
+    let process = current_cpu().get_process();
     if process.is_null() {
         panic!("Kernel process in core_trap");
     } else {

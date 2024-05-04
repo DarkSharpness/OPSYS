@@ -13,6 +13,7 @@ mod alloc;
 mod proc;
 mod syscall;
 mod service;
+mod cpu;
 
 use core::arch::{asm, global_asm};
 

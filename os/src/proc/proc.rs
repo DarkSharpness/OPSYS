@@ -6,94 +6,23 @@ use core::sync::atomic::AtomicUsize;
 use alloc::collections::VecDeque;
 use alloc::str;
 use riscv::register::satp;
-use crate::driver::get_tid;
-use crate::layout::*;
 
+use crate::cpu::current_cpu;
+use crate::driver::get_tid;
 use crate::alloc::{ummap, vmmap, PTEFlag, PageAddress, PAGE_SIZE, PAGE_TABLE};
+use crate::proc::ProcessStatus;
 use crate::service::Iterator;
 use crate::trap::{get_trampoline, user_trap, user_trap_return, TrapFrame, TRAMPOLINE, TRAP_FRAME};
+use super::{Context, PidType, Process, ProcessManager};
 
-use super::USER_STACK;
-
-#[repr(C)]
-pub struct Context {
-    ra  : usize,
-    sp  : usize,
-    saved_registers : [usize; 12],
-}
-
-type PidType = usize;
-
-pub enum ProcessStatus {
-    SLEEPING,   // blocked
-    INSERVICE,  // waiting for some service
-    RUNNABLE,   // ready to run, but not running
-    RUNNING,    // running on CPU
-    ZOMBIE,     // exited but have to be waited by parent
-    DEAD        // exited and no need to be waited by parent
-}
-
-pub struct Process {
-    pub pid         : PidType,          // process id
-    pub exit_code   : i32,              // exit code
-    pub status      : ProcessStatus,    // process status
-    pub root        : PageAddress,      // root of the page table
-    pub parent      : * mut Process,    // parent process
-    pub trap_frame  : * mut TrapFrame,  // trap frame
-    pub name        : &'static str,     // process name
-    pub service     : Iterator,         // service iterator
-    pub context     : Context,          // current context
-}
-
-pub struct ProcessManager {
-    pub process_queue   : VecDeque<Process>,
-    pub running_process : * mut Process,
-    pub batch_iter      : usize,
-    pub batch_size      : usize,
-}
-
-static mut MANAGER : [ProcessManager; NCPU] = [
-    ProcessManager {
-        process_queue   : VecDeque::new(),
-        running_process : core::ptr::null_mut(),
-        batch_iter      : 0,
-        batch_size      : 0,
-    }; NCPU];
-
-static mut CONTEXT : [Context; NCPU] = [
-    Context {
-        ra              : 0,
-        sp              : 0,
-        saved_registers : [0; 12],
-    }; NCPU];
-
-const TEST_PROGRAM0 : [u32; 4] = [
-    0x140413, // addi s0, s0 1
-    0x140413, // addi s0, s0 1
-    0x140413, // addi s0, s0 1
-    0x0000bfd5,                             // j 0
-];
-
-const TEST_PROGRAM1: [u32; 4] = [
-    0x10000537, // lui a0,0x10000
-    0x0320059b, // addiw a1,zero,0x32
-    0x00b50023, // sb a1,0(a0)
-    0x0000bfd5  // j 0
-];
-
-/** Return the current running process. */
-pub unsafe fn get_process() -> *mut Process {
-    let manager = get_manager();
-    return manager.running_process;
-}
+const USER_STACK    : usize     = 1 << 38;
 
 /* Add the init process to the manager. */
 pub unsafe fn init_process() {
     let trampoline = get_trampoline();
     vmmap(PAGE_TABLE, TRAMPOLINE, trampoline, PTEFlag::RX);
-
-    let manager = get_manager();
-    manager.process_queue.push_back(Process::new_test("Demo Program 0", false));
+    let manager = current_cpu().get_manager();
+    manager.process_queue.push_back(Process::new_test("Demo Program 0", true));
     manager.process_queue.push_back(Process::new_test("Demo Program 1", true));
 }
 
@@ -130,11 +59,7 @@ impl Process {
         trap_frame.kernel_satp   = satp::read().bits() as _;
         trap_frame.kernel_trap   = user_trap as _;
 
-        let context = Context {
-            ra              : user_trap_return as usize,
-            sp              : core_stack as _,
-            saved_registers : [0; 12],
-        };
+        let context = Context::new_with(user_trap_return as _, core_stack);
 
         // Complete the resource initialization.
         return Process {
@@ -154,27 +79,56 @@ impl Process {
         ummap(process.root, 0x10000000 , mmio , PTEFlag::RW);
 
         let addr = text.address() as *mut u32;
-        let program = if which { TEST_PROGRAM0 } else { TEST_PROGRAM0 };
-        for i in 0..TEST_PROGRAM0.len() {
+        let program = if which {[
+            0x140413,       // addi s0, s0 1
+            0x140413,       // addi s0, s0 1
+            0x140413,       // addi s0, s0 1
+            0x0000bfd5,     // j 0
+        ] } else { [
+            0x10000537,     // lui a0,0x10000
+            0x0320059b,     // addiw a1,zero,0x32
+            0x00b50023,     // sb a1,0(a0)
+            0x0000bfd5      // j 0
+        ] };
+
+        for i in 0..program.len() {
             addr.wrapping_add(i).write_volatile(program[i]);
         }
+
         return process;
     }
 
     /* Return the inner context. */
-    pub unsafe fn get_context(&mut self) -> *mut Context {
-        return &mut self.context as _;
+    pub unsafe fn get_context(&mut self) -> &mut Context {
+        return &mut self.context;
     }
 }
 
-/** Return the current thread's manager. */
-pub unsafe fn get_manager() -> &'static mut ProcessManager {
-    return &mut MANAGER[get_tid()];
+impl Context {
+    pub const fn new() -> Self {
+        return Self {
+            ra              : 0,
+            sp              : 0,
+            saved_registers : [0; 12],
+        };
+    }
+    /** Create a new context with the given ra and sp. */
+    fn new_with(ra : usize, sp : usize) -> Self {
+        return Self {
+            ra, sp, saved_registers : [0; 12],
+        };
+    }
 }
 
-/** Return the context pointer of the current thread. */
-pub unsafe fn get_context() -> *mut Context {
-    return &mut CONTEXT[get_tid()];
+impl ProcessManager {
+    pub const fn new() -> Self {
+        return Self {
+            process_queue   : VecDeque::new(),
+            running_process : null_mut(),
+            batch_iter      : 0,
+            batch_size      : 0,
+        };
+    }
 }
 
 static mut PID_POOL : AtomicUsize = AtomicUsize::new(0);

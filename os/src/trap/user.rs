@@ -1,8 +1,9 @@
 use core::arch::asm;
 use riscv::register::*;
+use crate::cpu::current_cpu;
 use crate::driver::plic;
 use crate::syscall::{sys_yield, syscall};
-use crate::{alloc::PageAddress, proc::get_process, trap::{set_kernel_trap, set_user_trap}};
+use crate::{alloc::PageAddress, trap::{set_kernel_trap, set_user_trap}};
 use super::{user_handle, user_return, Interrupt, TRAMPOLINE};
 
 /**
@@ -19,7 +20,7 @@ pub unsafe fn user_trap() {
     // extern "C" { fn fault_test(); }
     // fault_test();
 
-    let proc = get_process();
+    let proc = current_cpu().get_process();
 
     use scause::{Trap, Interrupt, Exception};
     match scause::read().cause() {
@@ -71,7 +72,7 @@ pub unsafe fn user_trap_return() {
     /* Set the trap vector back to user vector */
     set_user_trap();
 
-    let process = &mut *get_process();
+    let process = &mut (*current_cpu().get_process());
     sepc::write((*process.trap_frame).pc as _);
 
     return return_to_user(process.root);
