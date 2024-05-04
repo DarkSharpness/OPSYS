@@ -11,7 +11,7 @@ pub unsafe fn sys_yield() {
     let new_context = (*proc).get_context();
     
     /* Switch back to previous content. */
-    return switch_context(new_context as _, old_context as _);
+    return switch_context(new_context, old_context);
 }
 
 pub unsafe fn sys_wake_up(_process : *mut Process) {

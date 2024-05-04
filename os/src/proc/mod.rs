@@ -1,11 +1,10 @@
 mod proc;
 mod schedule;
 
-pub use proc::*;
+pub use proc::init_process;
 pub use schedule::run_process;
 
 extern crate alloc;
-
 use alloc::collections::VecDeque;
 use crate::{alloc::PageAddress, service::Iterator, trap::TrapFrame};
 

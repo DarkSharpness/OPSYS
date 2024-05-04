@@ -14,7 +14,7 @@ pub unsafe fn run_process() {
         let old_context = cpu.get_context();
         let new_context = (*next_task).get_context();
 
-        switch_context(old_context as _, new_context as _);
+        switch_context(old_context, new_context);
         cpu.complete_process(next_task);
     }
 }
