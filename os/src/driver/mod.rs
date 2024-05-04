@@ -2,7 +2,9 @@ pub mod uart;
 pub mod timer;
 pub mod start;
 pub mod plic;
+pub mod file;
 mod console;
+
 
 pub use start::init;
 use core::arch::{global_asm, asm};
