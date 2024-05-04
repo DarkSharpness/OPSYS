@@ -106,17 +106,13 @@ impl Process {
 
 impl Context {
     pub const fn new() -> Self {
-        return Self {
-            ra              : 0,
-            sp              : 0,
-            saved_registers : [0; 12],
-        };
+        return Self { stack_bottom : 0, };
     }
     /** Create a new context with the given ra and sp. */
     fn new_with(ra : usize, sp : usize) -> Self {
-        return Self {
-            ra, sp, saved_registers : [0; 12],
-        };
+        let ptr = sp as *mut usize;
+        unsafe { ptr.wrapping_sub(1).write_volatile(ra); }
+        return Self { stack_bottom : sp, };
     }
 }
 

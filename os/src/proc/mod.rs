@@ -11,11 +11,7 @@ use crate::{alloc::PageAddress, service::Iterator, trap::TrapFrame};
 extern "C" { pub fn switch_context(x : *mut Context, y : *mut Context); }
 
 #[repr(C)]
-pub struct Context {
-    ra  : usize,
-    sp  : usize,
-    saved_registers : [usize; 12],
-}
+pub struct Context { stack_bottom : usize, }
 
 pub type PidType = usize;
 
