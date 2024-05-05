@@ -22,6 +22,12 @@ pub unsafe fn init_process() {
     let trampoline = get_trampoline();
     vmmap(PAGE_TABLE, TRAMPOLINE, trampoline, PTEFlag::RX);
     let manager = current_cpu().get_manager();
+    // Currently, our implementation is problematic.
+    // When the queue is full, the old process will be replaced.
+    // We need a deque whose iterator will not be invalidated.
+    // To handle the problem here, we just reserve enough space.
+    // Plan to rewrite in the future.
+    manager.process_queue.reserve(32);
     manager.process_queue.push_back(Process::new_test("Demo Program 0", true));
     manager.process_queue.push_back(Process::new_test("Demo Program 1", true));
 }
