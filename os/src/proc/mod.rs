@@ -15,13 +15,14 @@ pub struct Context { stack_bottom : usize, }
 
 pub type PidType = usize;
 
+#[derive(Debug, PartialEq)]
 pub enum ProcessStatus {
-    SLEEPING,   // blocked
-    INSERVICE,  // waiting for some service
-    RUNNABLE,   // ready to run, but not running
     RUNNING,    // running on CPU
+    SERVICE,    // waiting for some service
+    RUNNABLE,   // ready to run, but not running
+    SLEEPING,   // blocked by some event
     ZOMBIE,     // exited but have to be waited by parent
-    DEAD        // exited and no need to be waited by parent
+    DEAD,       // exited and no need to be waited by parent
 }
 
 pub struct Process {

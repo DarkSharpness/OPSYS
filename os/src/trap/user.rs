@@ -2,7 +2,6 @@ use core::arch::asm;
 use riscv::register::*;
 use crate::cpu::current_cpu;
 use crate::driver::plic;
-use crate::syscall::{sys_yield, syscall};
 use crate::{alloc::PageAddress, trap::{set_kernel_trap, set_user_trap}};
 use super::{user_handle, user_return, Interrupt, TRAMPOLINE};
 
@@ -20,7 +19,7 @@ pub unsafe fn user_trap() {
     // extern "C" { fn fault_test(); }
     // fault_test();
 
-    let proc = current_cpu().get_process();
+    let cpu = current_cpu();
 
     use scause::{Trap, Interrupt, Exception};
     match scause::read().cause() {
@@ -30,13 +29,11 @@ pub unsafe fn user_trap() {
             // We should yield out the time.
             Interrupt::SupervisorSoft => {
                 asm!("csrci sip, 2");
-
-                sys_yield();
+                cpu.sys_yield();
             },
             Interrupt::SupervisorExternal => {
                 // Acknowledge the external interrupt
                 plic::resolve();
-
                 asm!("csrc sip, {}", in(reg) 1 << 9);
             }
             _ => panic!("Unable to resolve interrupt {:?}", interrupt),   
@@ -46,12 +43,7 @@ pub unsafe fn user_trap() {
             Exception::UserEnvCall => {
                 // Load out the syscall id in a7
                 // Load out the arguments in a0, a1, a2
-                let a0 = (*(*proc).trap_frame).a0;
-                let a1 = (*(*proc).trap_frame).a1;
-                let a2 = (*(*proc).trap_frame).a2;
-                let a7 = (*(*proc).trap_frame).a7;
-
-                syscall(a7 as _, a0, a1, a2);
+                cpu.syscall();
 
                 todo!("Handle the user syscall");
             }

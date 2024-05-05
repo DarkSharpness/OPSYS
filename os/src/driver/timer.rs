@@ -42,7 +42,7 @@ pub unsafe fn init() {
     mstatus::set_mpie();
 }
 
-pub unsafe fn set_timer_next() {
+unsafe fn set_timer_next() {
     let tid = get_tid();
     let mtimecmp = MTIMECMP.wrapping_add(tid);
     let mtime    = MTIME.wrapping_add(tid);
