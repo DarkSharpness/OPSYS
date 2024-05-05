@@ -1,6 +1,6 @@
 use alloc::{collections::VecDeque, vec::Vec};
 
-use super::uart::sync_putc;
+use super::{file::File, uart::sync_putc};
 
 extern crate alloc;
 
@@ -85,3 +85,26 @@ impl Console {
         return true;   // The character is interpreted.
     }
 }
+
+impl File for Console {
+    fn read(&mut self, buf: *mut u8, n : usize) -> usize {
+        for i in 0..n {
+            if let Some(c) = self.stdin.pop_front() {
+                unsafe { buf.add(i).write(c); }
+            } else {
+                return i;
+            }
+        }
+        return n;
+    }
+    fn write(&mut self, buf: *const u8, n : usize) -> usize {
+        unsafe {
+            CONSOLE.length = CONSOLE.buffer.len();
+            for i in 0..n { sync_putc(buf.add(i).read()); }
+        }
+        return n;
+    }
+}
+
+#[allow(static_mut_refs)]
+pub fn get_console_file() -> *mut dyn File { return unsafe { &mut CONSOLE }; }
