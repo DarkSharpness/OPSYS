@@ -11,7 +11,6 @@ use crate::cpu::current_cpu;
 use crate::driver::get_tid;
 use crate::alloc::{ummap, vmmap, PTEFlag, PageAddress, PAGE_SIZE, PAGE_TABLE};
 use crate::proc::ProcessStatus;
-use crate::service::Iterator;
 use crate::trap::{get_trampoline, user_trap, user_trap_return, TrapFrame, TRAMPOLINE, TRAP_FRAME};
 use super::{Context, PidType, Process, ProcessManager};
 
@@ -72,7 +71,6 @@ impl Process {
             exit_code   : 0,
             status      : ProcessStatus::RUNNABLE,
             pid         : allocate_pid(),
-            service     : Iterator::new(),
             context, root, parent, name, trap_frame
         };
     }

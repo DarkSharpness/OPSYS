@@ -6,7 +6,7 @@ pub use schedule::run_process;
 
 extern crate alloc;
 use alloc::collections::VecDeque;
-use crate::{alloc::PageAddress, service::Iterator, trap::TrapFrame};
+use crate::{alloc::PageAddress, trap::TrapFrame};
 
 extern "C" { pub fn switch_context(x : *mut Context, y : *mut Context); }
 
@@ -32,7 +32,6 @@ pub struct Process {
     pub parent      : * mut Process,    // parent process
     pub trap_frame  : * mut TrapFrame,  // trap frame
     pub name        : &'static str,     // process name
-    pub service     : Iterator,         // service iterator
     pub context     : Context,          // current context
 }
 
