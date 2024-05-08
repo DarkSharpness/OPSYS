@@ -16,9 +16,10 @@ impl CPU {
     pub unsafe fn sys_request(&mut self) {
         let process = self.get_process();
         let trap_frame = (*process).trap_frame;
-        let _service = (*trap_frame).a7;    // What service to request
-        let _target  = (*trap_frame).a6;    // Which port to request
-        let _handle  = (*process).new_service();    // Who call this syscall
+        let kind    = (*trap_frame).a7;     // What service to request
+        let port    = (*trap_frame).a6;     // Which port to request
+        let handle  = (*process).new_service();     // Who call this syscall
+        return self.request_service(port, kind, handle);
     }
 
     /**
@@ -28,7 +29,8 @@ impl CPU {
     pub unsafe fn sys_accept(&mut self) {
         let process = self.get_process();
         let trap_frame = (*process).trap_frame;
-        let _target = (*trap_frame).a6;    // Which port to accept
+        let port = (*trap_frame).a6;    // Which port to accept
+        return self.accept_service(port);
     }
 
     /**
@@ -40,9 +42,10 @@ impl CPU {
     pub unsafe fn sys_transfer(&mut self) {
         let process = self.get_process();
         let trap_frame = (*process).trap_frame;
-        let _service = (*trap_frame).a7;    // What service to transfer
-        let _target  = (*trap_frame).a6;    // Which port to transfer
-        let _handle  = (*trap_frame).a5;    // Who call this syscall
+        let kind    = (*trap_frame).a7; // What service to transfer
+        let port    = (*trap_frame).a6; // Which port to transfer
+        let handle  = (*trap_frame).a5; // Who call this syscall
+        return self.request_service(port, kind, handle);
     }
 
     /**
@@ -53,6 +56,9 @@ impl CPU {
     pub unsafe fn sys_response(&mut self) {
         let process = self.get_process();
         let trap_frame = (*process).trap_frame;
-        let _handle = (*trap_frame).a7;    // Who to response
+        let handle  = (*trap_frame).a7; // Who to response
+        return self.response_service(handle);        
     }
 }
+
+
