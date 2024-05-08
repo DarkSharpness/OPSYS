@@ -1,15 +1,11 @@
-use crate::{cpu::CPU, proc::*};
+use crate::cpu::CPU;
 
 impl CPU {
     pub unsafe fn sys_yield(&mut self) {
         self.reset_timer_time();
-        let process = self.get_process();
-
-        let old_context = self.get_context();
-        let new_context = (*process).get_context();
 
         /* Switch back to previous content. */
-        return switch_context(new_context, old_context);
+        return self.process_yield();
     }
 
     /**

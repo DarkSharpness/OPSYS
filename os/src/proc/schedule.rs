@@ -1,5 +1,5 @@
 use crate::{cpu::{current_cpu, CPU}, trap::Interrupt};
-use super::{Process, switch_context};
+use super::Process;
 
 pub unsafe fn run_process() {
     logging!("Starting process scheduler...");
@@ -11,10 +11,7 @@ pub unsafe fn run_process() {
         assert!(prev_task.is_null(), "Task should be null");
         let next_task   = cpu.next_process();
 
-        let old_context = cpu.get_context();
-        let new_context = (*next_task).get_context();
-
-        switch_context(old_context, new_context);
+        cpu.scheduler_yield(next_task);
         cpu.complete_process(next_task);
     }
 }

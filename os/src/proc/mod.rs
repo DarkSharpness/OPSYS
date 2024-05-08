@@ -6,9 +6,9 @@ pub use schedule::run_process;
 
 extern crate alloc;
 use alloc::collections::VecDeque;
-use crate::{alloc::PageAddress, trap::TrapFrame};
+use crate::{alloc::PageAddress, cpu::CPU, trap::TrapFrame};
 
-extern "C" { pub fn switch_context(x : *mut Context, y : *mut Context); }
+extern "C" { fn switch_context(old : *mut Context, new : *mut Context); }
 
 #[repr(C)]
 pub struct Context { stack_bottom : usize, }
@@ -41,4 +41,23 @@ pub struct ProcessManager {
     pub running_process : * mut Process,
     pub batch_iter      : usize,
     pub batch_size      : usize,
+}
+
+impl CPU {
+    /** Switch from current process to new process. */
+    pub unsafe fn switch_to(&mut self, new : *mut Process) {
+        let old = self.get_process();
+        switch_context((*old).get_context(), (*new).get_context());
+    }
+
+    /** Switch from current process to the scheduler. */
+    pub unsafe fn process_yield(&mut self) {
+        let old = self.get_process();
+        switch_context((*old).get_context(), self.get_context());
+    }
+
+    /** Switch from scheduler to the new process. */
+    pub unsafe fn scheduler_yield(&mut self, new : *mut Process) {
+        switch_context(self.get_context(), (*new).get_context());
+    }
 }
