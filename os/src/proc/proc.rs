@@ -5,6 +5,7 @@ use core::sync::atomic::AtomicUsize;
 
 use alloc::collections::VecDeque;
 use alloc::str;
+use alloc::vec::Vec;
 use riscv::register::satp;
 
 use crate::cpu::current_cpu;
@@ -27,8 +28,9 @@ pub unsafe fn init_process() {
     // To handle the problem here, we just reserve enough space.
     // Plan to rewrite in the future.
     manager.process_queue.reserve(32);
-    manager.process_queue.push_back(Process::new_test("Demo Program 0", true));
-    manager.process_queue.push_back(Process::new_test("Demo Program 1", true));
+
+    manager.add_process(Process::new_test("Demo Program 0", true));
+    manager.add_process(Process::new_test("Demo Program 1", true));
 }
 
 impl Process {
@@ -129,11 +131,34 @@ impl ProcessManager {
             batch_size      : 0,
         };
     }
+
+    unsafe fn add_process(&mut self, process : Process) {
+        self.process_queue.push_back(process);
+        let back = self.process_queue.back_mut().unwrap();
+        register_process(back);
+    }
 }
 
 static mut PID_POOL : AtomicUsize = AtomicUsize::new(0);
+static mut PID_MAP  : Vec<* mut Process> = Vec::new();
 
 /** Allocate an available pid for the process. */
 unsafe fn allocate_pid() -> PidType {
     return PID_POOL.fetch_add(1, core::sync::atomic::Ordering::SeqCst);
+}
+
+/** Register the process to the pid map. */
+unsafe fn register_process(process : * mut Process) {
+    assert!(PID_MAP.len() == (*process).pid);
+    PID_MAP.push(process);
+}
+
+/** Get the process by the pid. */
+pub unsafe fn pid_to_process(pid : PidType) -> * mut Process {
+    return PID_MAP[pid as usize];
+}
+
+/** Unregister the process from the pid map. */
+pub unsafe fn unregister_process(process : * mut Process) {
+    PID_MAP[(*process).pid as usize] = null_mut();
 }
