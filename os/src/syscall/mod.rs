@@ -1,5 +1,5 @@
 mod syscall;
-use crate::{driver::shutdown, trap::TrapFrame};
+use crate::{cpu::CPU, driver::shutdown, trap::TrapFrame};
 
 /// Handle those unknown syscalls
 unsafe fn unknown_syscall(index : usize, trap_frame : *mut TrapFrame) {
@@ -7,7 +7,7 @@ unsafe fn unknown_syscall(index : usize, trap_frame : *mut TrapFrame) {
     warning!("Unknown syscall: {}", index);
 }
 
-impl crate::cpu::CPU {
+impl CPU {
     pub unsafe fn syscall(&mut self) {
         use sys::syscall::*;
         let process = self.get_process();

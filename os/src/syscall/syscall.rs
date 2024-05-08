@@ -1,6 +1,6 @@
-use crate::proc::*;
+use crate::{cpu::CPU, proc::*};
 
-impl crate::cpu::CPU {
+impl CPU {
     pub unsafe fn sys_yield(&mut self) {
         self.reset_timer_time();
         let process = self.get_process();

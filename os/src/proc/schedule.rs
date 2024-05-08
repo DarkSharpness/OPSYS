@@ -1,4 +1,4 @@
-use crate::{cpu::current_cpu, trap::Interrupt};
+use crate::{cpu::{current_cpu, CPU}, trap::Interrupt};
 use super::{Process, switch_context};
 
 pub unsafe fn run_process() {
@@ -19,7 +19,7 @@ pub unsafe fn run_process() {
     }
 }
 
-impl crate::cpu::CPU {
+impl CPU {
     pub fn get_process(&mut self) -> *mut Process {
         return self.get_manager().running_process;
     }

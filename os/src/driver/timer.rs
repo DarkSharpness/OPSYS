@@ -5,7 +5,7 @@ const BASE     :       usize  = 0x2000000;
 const MTIME    : * mut usize  = (BASE + 0xBFF8) as _;
 const MTIMECMP : * mut usize  = (BASE + 0x4000) as _;
 
-use crate::cpu::current_cpu;
+use crate::cpu::{current_cpu, CPU};
 
 use super::get_tid;
 
@@ -69,7 +69,7 @@ impl TimeScartch {
     }
 }
 
-impl crate::cpu::CPU {
+impl CPU {
     pub fn set_timer_interval(&mut self, time : Time) {
         self.scratch.interval = usize::from(time);
     }
