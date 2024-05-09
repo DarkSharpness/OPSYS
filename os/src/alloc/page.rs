@@ -1,3 +1,5 @@
+use bitflags::bitflags;
+
 use crate::alloc::print_separator;
 use crate::alloc::get_mem_end;
 use super::{buddy::BuddyAllocator, constant::*};
@@ -8,6 +10,40 @@ pub struct PageAddress(usize);
 pub struct PageTableEntry(usize);
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct PTEFlag(usize);
+
+/**
+ * These flags are made private to avoid any misuse.
+ * ---------------------------------------------------
+ * Plan of the 2 reserved bits:
+ * - 00: Default, a PTE that doesn't own any permission.
+ * - 01: A PTE owned by current process, destructed when process exits.
+ * - 10: A PTE shared by multiple processes, need reference counting.
+ * - 11: Not used yet.
+ */
+const V : PTEFlag = PTEFlag(1 << 0);
+const R : PTEFlag = PTEFlag(1 << 1);
+const W : PTEFlag = PTEFlag(1 << 2);
+const X : PTEFlag = PTEFlag(1 << 3);
+const U : PTEFlag = PTEFlag(1 << 4);
+const G : PTEFlag = PTEFlag(1 << 5);
+const A : PTEFlag = PTEFlag(1 << 6);
+const D : PTEFlag = PTEFlag(1 << 7);
+const RSV : PTEFlag = PTEFlag(3 << 8);
+
+bitflags! {
+    // Only make those useful flags public.
+    impl PTEFlag : usize {
+        const XO = V.0 | X.0;       // Execute-only
+        const RO = V.0 | R.0;       // Read-only
+        const RX = V.0 | R.0 | X.0; // Read-execute
+        const RW = V.0 | R.0 | W.0; // Read-write
+
+        const NEXT      = 1;        // Next level of page table
+        const INVALID   = 0;        // Invalid page table entry
+        const OWNED     = 0b01 << 8; // Exclusive mapping
+        const SHARED    = 0b10 << 8; // Shared mapping 
+    }
+}
 
 /**
  * Init the page table with 3 size of pages.
@@ -78,7 +114,7 @@ unsafe fn init_kernel_page(leaf : PageAddress) {
     let rodata_finish = get_relative_page_num(erodata as usize);
     message!("rodata_start: {}, rodata_finish: {}", rodata_start, rodata_finish);
     for i in rodata_start..rodata_finish {
-        set_normal_identity(leaf, 2, 0, i, PTEFlag::R);
+        set_normal_identity(leaf, 2, 0, i, PTEFlag::RO);
     }
 
     let data_start  = get_relative_page_num(sdata as usize);
@@ -109,104 +145,16 @@ unsafe fn init_kernel_page(leaf : PageAddress) {
     set_normal_identity(leaf, 2, 0, 2, PTEFlag::RW);
 } 
 
-/**
- * Build up a mapping from a virtual address to a physical address at given page table.
- */
-pub unsafe fn vmmap(mut root : PageAddress, __virt : usize, __phys : PageAddress, __flag : PTEFlag) {
-    let virt = (__virt >> 12) as usize;
-    let ppn0 = (virt >> 18) & 0x1FF;
-    let ppn1 = (virt >> 9)  & 0x1FF;
-    let ppn2 = (virt >> 0)  & 0x1FF;
-
-    let page = &mut root[ppn0];
-    let (addr, flag) = page.get_entry();
-    if flag == PTEFlag::INVALID {
-        let temp = PageAddress::new_pagetable();
-        page.set_entry(temp, PTEFlag::NEXT);
-        root = temp;
-    } else {
-        assert!(flag == PTEFlag::NEXT, "Mapping existed!");
-        root = addr;
-    }
-
-    let page = &mut root[ppn1];
-    let (addr, flag) = page.get_entry();
-    if flag == PTEFlag::INVALID {
-        let temp = PageAddress::new_pagetable();
-        page.set_entry(temp, PTEFlag::NEXT);
-        root = temp;
-    } else {
-        assert!(flag == PTEFlag::NEXT, "Mapping existed!");
-        root = addr;
-    }
-
-    let page = &mut root[ppn2];
-    let (____, flag) = page.get_entry();
-    assert!(flag == PTEFlag::INVALID, "Mapping existed!");
-    page.set_entry(__phys, __flag);
-}
-
-/**
- * Build up a mapping from user virtual address to a physical address at given page table.
- */
-pub unsafe fn ummap(root : PageAddress, __virt : usize, __phys : PageAddress, __flag : PTEFlag) {
-    let __flag = PTEFlag(__flag.0 | PTEFlag::USER);
-    return vmmap(root, __virt, __phys, __flag);
-}
-
-
-/**
- * -----------------------------------------------------------
- * The code below are some unnecessary implementation details.
- * -----------------------------------------------------------
- */
-
-impl PTEFlag {
-    const VALID    : usize   = 1 << 0;
-    const READ     : usize   = 1 << 1;
-    const WRITE    : usize   = 1 << 2;
-    const EXECUTE  : usize   = 1 << 3;
-    const USER     : usize   = 1 << 4;
-    const GLOBAL   : usize   = 1 << 5;
-    const ACCESSED : usize   = 1 << 6;
-    const DIRTY    : usize   = 1 << 7;
-    const RESERVED : usize   = 3 << 8;
-
-    pub const INVALID   : PTEFlag = PTEFlag(0);
-    pub const X     : PTEFlag = PTEFlag(PTEFlag::VALID | PTEFlag::EXECUTE);
-    pub const R     : PTEFlag = PTEFlag(PTEFlag::VALID | PTEFlag::READ);
-    pub const RW    : PTEFlag = PTEFlag(PTEFlag::VALID | PTEFlag::READ | PTEFlag::WRITE);
-    pub const RX    : PTEFlag = PTEFlag(PTEFlag::VALID | PTEFlag::READ | PTEFlag::EXECUTE);
-    pub const RWX   : PTEFlag = PTEFlag(PTEFlag::VALID | PTEFlag::READ | PTEFlag::WRITE | PTEFlag::EXECUTE);
-    pub const NEXT  : PTEFlag = PTEFlag(PTEFlag::VALID);
-
-    /** Return the flag bits. */
-    pub fn bits(self) -> usize { self.0 }
-
-    /** Debug output. */
-    fn debug(self) {
-        let flag = self.0;
-        print_if(flag & PTEFlag::DIRTY      != 0, 'D');
-        print_if(flag & PTEFlag::ACCESSED   != 0, 'A');
-        print_if(flag & PTEFlag::GLOBAL     != 0, 'G');
-        print_if(flag & PTEFlag::USER       != 0, 'U');
-        print_if(flag & PTEFlag::EXECUTE    != 0, 'X');
-        print_if(flag & PTEFlag::WRITE      != 0, 'W');
-        print_if(flag & PTEFlag::READ       != 0, 'R');
-        uart_print!("\n");
-    }
-}
-
 impl PageTableEntry {
     const MASK : usize = 0x3FF;
     pub fn set_entry(&mut self, addr : PageAddress, flag : PTEFlag) {
         self.0 = (addr.bits()) << 10 | flag.bits();
     }
     pub fn get_entry(self) -> (PageAddress, PTEFlag) {
-        (PageAddress(self.0 >> 10), PTEFlag(self.0 & PageTableEntry::MASK))
+        (PageAddress(self.0 >> 10), PTEFlag(self.0 & Self::MASK))
     }
     pub fn set_flag(&mut self, flag : PTEFlag) {
-        self.0 = (self.0 & !PageTableEntry::MASK) | flag.bits();
+        self.0 = (self.0 & !Self::MASK) | flag.bits();
     }
 }
 
@@ -240,6 +188,15 @@ impl PageAddress {
     pub fn bits(self) -> usize { self.0 }
     /** Return the physical address. */
     pub fn address(self) -> *mut u8 { (self.0 << 12) as *mut u8 }
+
+    /** Add a supervisor mapping. */
+    pub unsafe fn smap(self, virt : usize, phys : PageAddress, flag : PTEFlag) {
+        return vmmap(self, virt, phys, flag);
+    }
+    /** Add a user mapping. */
+    pub unsafe fn umap(self, virt : usize, phys : PageAddress, flag : PTEFlag) {
+        return vmmap(self, virt, phys, flag | U);
+    }
 
     /** Debug output. */
     pub fn debug(self) {
@@ -293,6 +250,43 @@ impl core::ops::IndexMut<usize> for PageAddress {
     }
 }
 
+/**
+ * Build up a mapping from a virtual address to a physical address at given page table.
+ */
+unsafe fn vmmap(mut root : PageAddress, virt : usize, phys : PageAddress, __flag : PTEFlag) {
+    let virt = (virt >> 12) as usize;
+    let ppn0 = (virt >> 18) & 0x1FF;
+    let ppn1 = (virt >> 9)  & 0x1FF;
+    let ppn2 = (virt >> 0)  & 0x1FF;
+
+    let page = &mut root[ppn0];
+    let (addr, flag) = page.get_entry();
+    if flag == PTEFlag::INVALID {
+        let temp = PageAddress::new_pagetable();
+        page.set_entry(temp, PTEFlag::NEXT);
+        root = temp;
+    } else {
+        assert!(flag == PTEFlag::NEXT, "Mapping existed!");
+        root = addr;
+    }
+
+    let page = &mut root[ppn1];
+    let (addr, flag) = page.get_entry();
+    if flag == PTEFlag::INVALID {
+        let temp = PageAddress::new_pagetable();
+        page.set_entry(temp, PTEFlag::NEXT);
+        root = temp;
+    } else {
+        assert!(flag == PTEFlag::NEXT, "Mapping existed!");
+        root = addr;
+    }
+
+    let page = &mut root[ppn2];
+    let (____, flag) = page.get_entry();
+    assert!(flag == PTEFlag::INVALID, "Mapping existed!");
+    page.set_entry(phys, __flag);
+}
+
 /** Return the relative page number to the front of kernel (0x80000000).  */
 unsafe fn get_relative_page_num(x : usize) -> usize {
     extern "C" { fn skernel(); }
@@ -336,3 +330,22 @@ fn print_if(cond : bool, mut x : char) { if !cond { x = '-'; } uart_print!("{}",
 
 #[inline(always)]
 fn to_virtual(x : usize) -> *mut u8 { return (x << PAGE_BITS) as _; }
+
+/**
+ * -----------------------------------------------------------
+ * The code below are some unnecessary implementation details.
+ * -----------------------------------------------------------
+ */
+impl PTEFlag {
+    /** Debug output. */
+    fn debug(self) {
+        print_if(self.contains(D), 'D');
+        print_if(self.contains(A), 'A');
+        print_if(self.contains(G), 'G');
+        print_if(self.contains(U), 'U');
+        print_if(self.contains(X), 'X');
+        print_if(self.contains(W), 'W');
+        print_if(self.contains(R), 'R');
+        uart_print!("\n");
+    }
+}
