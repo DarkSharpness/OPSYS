@@ -1,12 +1,8 @@
 use crate::cpu::CPU;
 
 impl CPU {
-    pub unsafe fn sys_yield(&mut self) {
-        self.reset_timer_time();
-
-        /* Switch back to previous content. */
-        return self.process_yield();
-    }
+    /** Reset the timer and yield to another process. */
+    pub unsafe fn sys_yield(&mut self) { return self.process_yield(); }
 
     /**
      * A blocking request sent by a trusted process to the kernel.
@@ -16,10 +12,12 @@ impl CPU {
     pub unsafe fn sys_request(&mut self) {
         let process = self.get_process();
         let trap_frame = (*process).trap_frame;
-        let kind    = (*trap_frame).a7;     // What service to request
+        let kind    = (*trap_frame).a4;     // What service to request
         let port    = (*trap_frame).a6;     // Which port to request
         let handle  = (*process).new_service();     // Who call this syscall
-        return self.request_service(port, kind, handle);
+        let args    = [(*trap_frame).a0, (*trap_frame).a1, (*trap_frame).a2];
+
+        return self.request_service(port, kind, handle, args, true);
     }
 
     /**
@@ -45,7 +43,9 @@ impl CPU {
         let kind    = (*trap_frame).a7; // What service to transfer
         let port    = (*trap_frame).a6; // Which port to transfer
         let handle  = (*trap_frame).a5; // Who call this syscall
-        return self.request_service(port, kind, handle);
+        let args    = [(*trap_frame).a0, (*trap_frame).a1, (*trap_frame).a2];
+
+        return self.request_service(port, kind, handle, args, false);
     }
 
     /**
@@ -56,9 +56,7 @@ impl CPU {
     pub unsafe fn sys_response(&mut self) {
         let process = self.get_process();
         let trap_frame = (*process).trap_frame;
-        let handle  = (*trap_frame).a7; // Who to response
+        let handle  = (*trap_frame).a0; // Who to response
         return self.response_service(handle);        
     }
 }
-
-

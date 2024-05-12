@@ -44,20 +44,22 @@ pub struct ProcessManager {
 }
 
 impl CPU {
-    /** Switch from current process to new process. */
+    /** Switch from current process to new process. Timer is untouched. */
     pub unsafe fn switch_to(&mut self, new : *mut Process) {
         let old = self.get_process();
         switch_context((*old).get_context(), (*new).get_context());
     }
 
-    /** Switch from current process to the scheduler. */
+    /** Switch from current process to the scheduler. Timer is reset. */
     pub unsafe fn process_yield(&mut self) {
+        self.reset_timer_time();
         let old = self.get_process();
         switch_context((*old).get_context(), self.get_context());
     }
 
-    /** Switch from scheduler to the new process. */
+    /** Switch from scheduler to the new process. Timer is reset. */
     pub unsafe fn scheduler_yield(&mut self, new : *mut Process) {
+        self.reset_timer_time();
         switch_context(self.get_context(), (*new).get_context());
     }
 }

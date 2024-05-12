@@ -108,9 +108,21 @@ impl Process {
         return process;
     }
 
-    /* Return the inner context. */
+    /** Return the inner context. */
     pub unsafe fn get_context(&mut self) -> &mut Context {
         return &mut self.context;
+    }
+
+    /** Sleep and set the status as given. */
+    pub fn sleep_as(&mut self, status : ProcessStatus) {
+        assert_eq!(self.status, ProcessStatus::RUNNING, "Invalid to sleep!");
+        self.status = status;
+    }
+
+    /** Wake up from given status. */
+    pub fn wake_up_from(&mut self, status : ProcessStatus) {
+        assert_eq!(self.status, status, "Invalid to wake up!");
+        self.status = ProcessStatus::RUNNING;
     }
 }
 
