@@ -36,11 +36,11 @@ pub fn sys_accept(port : usize) -> AcceptPacket {
             "ecall",
             in("a6") port,
             in("a7") SYS_ACCEPT,
-            lateout("a0") kind,
-            lateout("a1") handle,
-            lateout("a2") arg0,
-            lateout("a3") arg1,
-            lateout("a4") arg2,
+            lateout("a0") arg0,
+            lateout("a1") arg1,
+            lateout("a2") arg2,
+            lateout("a4") kind,
+            lateout("a5") handle,
         );
     }
     return AcceptPacket {
