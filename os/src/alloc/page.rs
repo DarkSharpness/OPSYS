@@ -197,44 +197,74 @@ impl PageAddress {
     pub unsafe fn umap(self, virt : usize, phys : PageAddress, flag : PTEFlag) {
         return vmmap(self, virt, phys, flag | U);
     }
-
-    /** Debug output. */
-    pub fn debug(self) {
-        warning!("Root address = {:#x}", self.address() as usize);
-
-        for i in 0..512 {
-            let base = i << 18;
-            let (addr, flag) = self[i].get_entry();
-            if flag == PTEFlag::INVALID { continue; }
-            if flag != PTEFlag::NEXT {
-                message_inline!("Mapping 1GiB {:<12p} -> {:<10p} Flag = ",
-                    to_virtual(base) , addr.address());
-                flag.debug(); 
-                continue;
-            }
-            for j in 0..512 {
-                let base = base | j << 9;
-                let (addr, flag) = addr[j].get_entry();
-                if flag == PTEFlag::INVALID { continue; }
-                if flag != PTEFlag::NEXT {
-                    message_inline!("Mapping 2MiB {:<12p} -> {:<10p} Flag = ",
-                        to_virtual(base), addr.address());
-                    flag.debug();
-                    continue;
-                }
-                warning!("Here {:p}", addr.address());
-                for k in 0..512 {
-                    let base = base | k;
-                    let (addr, flag) = addr[k].get_entry();
-                    if flag == PTEFlag::INVALID { continue; }
-                    assert!(flag != PTEFlag::NEXT, "Invalid page table mapping!");
-                    message_inline!("Mapping 4KiB {:<12p} -> {:<10p} Flag = ",
-                        to_virtual(base), addr.address());
-                    flag.debug();
-                }
-            }
+    /** Copy from a kernel pointer to a user pointer */
+    pub unsafe fn copy_to_user(self, dst : *mut u8 , src : *const u8, len : usize) {
+        if len == 0 { return; }
+        let end = dst.wrapping_add(len);
+        let page_beg = (dst as usize) >> 12;
+        let page_end = (end as usize - 1) >> 12;
+        if page_beg == page_end {
+            return self.copy_to_user_0(dst, len, src);
+        } else {
+            todo!("Implement copy_to_user for multiple pages.");
+            // return self.copy_to_user_1(dst, len, src);
         }
     }
+
+    unsafe fn copy_to_user_0(self, beg: *mut u8, len : usize, src : *const u8) { 
+        let page    = beg as usize >> 12;
+        let offset  = beg as usize & 0xFFF; 
+        let ppn0 = (page as usize) >> 18;
+        let ppn1 = (page as usize) >> 9 & 0x1FF;
+        let ppn2 = (page as usize) & 0x1FF;
+
+        let (addr, flag) = self[ppn0].get_entry();        
+        assert!(flag == PTEFlag::NEXT, "Invalid page table mapping!");
+        let (addr, flag) = addr[ppn1].get_entry();
+        assert!(flag == PTEFlag::NEXT, "Invalid page table mapping!");
+        let (addr, flag) = addr[ppn2].get_entry();
+        assert!(flag.contains(U | W | V), "Invalid page table mapping!");
+
+        let addr = addr.address().wrapping_add(offset);
+        addr.copy_from(src, len);
+    }
+
+    // pub fn debug(self) {
+        // warning!("Root address = {:#x}", self.address() as usize);
+
+        // for i in 0..512 {
+        //     let base = i << 18;
+        //     let (addr, flag) = self[i].get_entry();
+        //     if flag == PTEFlag::INVALID { continue; }
+        //     if flag != PTEFlag::NEXT {
+        //         message_inline!("Mapping 1GiB {:<12p} -> {:<10p} Flag = ",
+        //             to_virtual(base) , addr.address());
+        //         flag.debug(); 
+        //         continue;
+        //     }
+        //     for j in 0..512 {
+        //         let base = base | j << 9;
+        //         let (addr, flag) = addr[j].get_entry();
+        //         if flag == PTEFlag::INVALID { continue; }
+        //         if flag != PTEFlag::NEXT {
+        //             message_inline!("Mapping 2MiB {:<12p} -> {:<10p} Flag = ",
+        //                 to_virtual(base), addr.address());
+        //             flag.debug();
+        //             continue;
+        //         }
+        //         warning!("Here {:p}", addr.address());
+        //         for k in 0..512 {
+        //             let base = base | k;
+        //             let (addr, flag) = addr[k].get_entry();
+        //             if flag == PTEFlag::INVALID { continue; }
+        //             assert!(flag != PTEFlag::NEXT, "Invalid page table mapping!");
+        //             message_inline!("Mapping 4KiB {:<12p} -> {:<10p} Flag = ",
+        //                 to_virtual(base), addr.address());
+        //             flag.debug();
+        //         }
+        //     }
+        // }
+    // }
 }
 
 impl core::ops::Index<usize> for PageAddress {
