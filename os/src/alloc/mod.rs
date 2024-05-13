@@ -2,10 +2,12 @@ mod node;
 mod page;
 mod buddy;
 mod constant;
+mod page_impl;
 
 pub use constant::PAGE_TABLE;
 pub use constant::PAGE_SIZE;
-pub use page::*;
+pub use page::PageAddress;
+pub use page::PTEFlag;
 
 use constant::*;
 use core::alloc::{GlobalAlloc, Layout};

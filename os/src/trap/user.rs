@@ -1,8 +1,9 @@
 use core::arch::asm;
 use riscv::register::*;
+use crate::alloc::PageAddress;
 use crate::cpu::current_cpu;
 use crate::driver::plic;
-use crate::{alloc::PageAddress, trap::{set_kernel_trap, set_user_trap}};
+use crate::trap::{set_kernel_trap, set_user_trap};
 use super::{user_handle, user_return, Interrupt, TRAMPOLINE};
 
 /**
