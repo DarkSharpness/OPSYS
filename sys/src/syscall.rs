@@ -11,5 +11,5 @@ pub const SYS_WRITE     : usize   = 8;
 pub const SYS_YIELD     : usize   = 9;
 
 pub const SYS_REQUEST   : usize   = 10;
-pub const SYS_ACCEPT    : usize   = 11;
-pub const SYS_RESPONSE  : usize   = 12;
+pub const SYS_RECEIVE   : usize   = 11;
+pub const SYS_RESPOND   : usize   = 12;
