@@ -1,4 +1,4 @@
-use crate::cpu::CPU;
+use crate::{cpu::CPU, service::ServiceHandle};
 
 impl CPU {
     /** Reset the timer and yield to another process. */
@@ -11,41 +11,27 @@ impl CPU {
      */
     pub unsafe fn sys_request(&mut self) {
         let process = self.get_process();
-        let trap_frame = (*process).trap_frame;
-        let kind    = (*trap_frame).a4;     // What service to request
-        let port    = (*trap_frame).a6;     // Which port to request
-        let handle  = (*process).new_service();     // Who call this syscall
-        let args    = [(*trap_frame).a0, (*trap_frame).a1, (*trap_frame).a2];
+        let trap_frame = &mut *(*process).trap_frame;
 
-        return self.request_service(port, kind, handle, args, true);
+        let call_fn = if trap_frame.a5 == 0 {
+            Self::service_request_block
+        } else {
+            Self::service_request_async
+        };
+
+        call_fn(self, [trap_frame.a0, trap_frame.a1, trap_frame.a2,
+                       trap_frame.a4, trap_frame.a6]);
     }
 
     /**
      * A blocking accept sent by a trusted process to the kernel.
      * Only one process can accept one certain request.
      */
-    pub unsafe fn sys_accept(&mut self) {
-        let process = self.get_process();
-        let trap_frame = (*process).trap_frame;
-        let port = (*trap_frame).a6;    // Which port to accept
-        return self.accept_service(port);
-    }
-
-    /**
-     * A non-blocking transfer sent by a trusted process to the kernel.
-     * This will transfer the request from handle, leaving it for the
-     * target to accept and complete. The last response will be sent
-     * from the target (or transfer again) to the handle.
-     */
-    pub unsafe fn sys_transfer(&mut self) {
-        let process = self.get_process();
-        let trap_frame = (*process).trap_frame;
-        let kind    = (*trap_frame).a7; // What service to transfer
-        let port    = (*trap_frame).a6; // Which port to transfer
-        let handle  = (*trap_frame).a5; // Who call this syscall
-        let args    = [(*trap_frame).a0, (*trap_frame).a1, (*trap_frame).a2];
-
-        return self.request_service(port, kind, handle, args, false);
+    pub unsafe fn sys_receive(&mut self) {
+        let process     = self.get_process();
+        let trap_frame  = &mut *(*process).trap_frame;
+        let port        = (*trap_frame).a6;
+        return self.service_receive(port);
     }
 
     /**
@@ -53,10 +39,10 @@ impl CPU {
      * This will send the response to the handle, which is the caller
      * of the request. After the reponse, the caller will continue to run.
      */
-    pub unsafe fn sys_response(&mut self) {
-        let process = self.get_process();
-        let trap_frame = (*process).trap_frame;
-        let handle  = (*trap_frame).a0; // Who to response
-        return self.response_service(handle);        
+    pub unsafe fn sys_respond(&mut self) {
+        let process     = self.get_process();
+        let trap_frame  = &mut *(*process).trap_frame;
+        let handle      = ServiceHandle::new(trap_frame.a5);
+        return self.service_respond(handle);
     }
 }

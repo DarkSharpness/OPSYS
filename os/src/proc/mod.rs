@@ -3,6 +3,7 @@ mod schedule;
 
 pub use proc::init_process;
 pub use schedule::run_process;
+pub use proc::pid_to_process;
 
 extern crate alloc;
 use alloc::collections::VecDeque;
@@ -13,11 +14,12 @@ extern "C" { fn switch_context(old : *mut Context, new : *mut Context); }
 #[repr(C)]
 pub struct Context { stack_bottom : usize, }
 
-pub type PidType = usize;
+pub struct PidType(usize);
 
 #[derive(Debug, PartialEq)]
 pub enum ProcessStatus {
     RUNNING,    // running on CPU
+    SERVING,    // serving some service
     SERVICE,    // waiting for some service
     RUNNABLE,   // ready to run, but not running
     SLEEPING,   // blocked by some event
@@ -62,4 +64,9 @@ impl CPU {
         self.reset_timer_time();
         switch_context(self.get_context(), (*new).get_context());
     }
+}
+
+impl PidType {
+    pub fn new(pid : usize) -> Self { Self(pid) }
+    pub fn bits(&self) -> usize { self.0 }
 }

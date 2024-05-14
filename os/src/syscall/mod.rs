@@ -20,8 +20,8 @@ impl CPU {
             SYS_SHUTDOWN    => shutdown(),
             SYS_YIELD       => self.sys_yield(),
             SYS_REQUEST     => self.sys_request(),
-            SYS_ACCEPT      => self.sys_accept(),
-            SYS_RESPONSE    => self.sys_response(),
+            SYS_RECEIVE     => self.sys_receive(),
+            SYS_RESPOND     => self.sys_respond(),
             _ => unknown_syscall(index, trap_frame),
         }
     }

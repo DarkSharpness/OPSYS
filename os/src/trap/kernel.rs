@@ -14,6 +14,6 @@ unsafe fn core_trap() {
     if process.is_null() {
         panic!("Kernel process in core_trap");
     } else {
-        panic!("Process {} in core_trap", (*process).pid);
+        panic!("Process {} in core_trap", (*process).pid.bits());
     }
 }

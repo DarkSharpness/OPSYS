@@ -160,21 +160,21 @@ static mut PID_MAP  : Vec<* mut Process> = Vec::new();
 
 /** Allocate an available pid for the process. */
 unsafe fn allocate_pid() -> PidType {
-    return PID_POOL.fetch_add(1, core::sync::atomic::Ordering::SeqCst);
+    return PidType::new(PID_POOL.fetch_add(1, core::sync::atomic::Ordering::SeqCst));
 }
 
 /** Register the process to the pid map. */
 unsafe fn register_process(process : * mut Process) {
-    assert!(PID_MAP.len() == (*process).pid);
+    assert!(PID_MAP.len() == (*process).pid.bits());
     PID_MAP.push(process);
 }
 
 /** Get the process by the pid. */
 pub unsafe fn pid_to_process(pid : PidType) -> * mut Process {
-    return PID_MAP[pid as usize];
+    return PID_MAP[pid.bits()];
 }
 
 /** Unregister the process from the pid map. */
 pub unsafe fn unregister_process(process : * mut Process) {
-    PID_MAP[(*process).pid as usize] = null_mut();
+    PID_MAP[(*process).pid.bits()] = null_mut();
 }
