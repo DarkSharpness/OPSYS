@@ -40,12 +40,12 @@ impl PageAddress {
      * This will check the permission of the user pointer.
      * It should be at least U + R + V.
      */
-    pub unsafe fn user_to_core(self, src : *const u8, len : usize) -> Box<[u8]> {
+    pub unsafe fn user_to_core(self, src : usize, len : usize) -> Box<[u8]> {
         if len == 0 { return Box::new([]); }
         let vec : Vec <u8> = Vec::with_capacity(len);
-        let end = src.wrapping_add(len);
-        let page_beg = (src as usize) >> 12;
-        let page_end = (end as usize - 1) >> 12;
+        let end = src + len;
+        let page_beg = src >> 12;
+        let page_end = (end - 1) >> 12;
         if page_beg == page_end {
             return user_to_core_0(self, src, vec);
         } else {
@@ -59,11 +59,11 @@ impl PageAddress {
      * This will check the permission of the user pointer.
      * It should be at least U + W + V.
      */
-    pub unsafe fn core_to_user(self, dst : *mut u8 , src : &[u8]) {
+    pub unsafe fn core_to_user(self, dst : usize, src : &[u8]) {
         if src.len() == 0 { return; }
-        let end = dst.wrapping_add(src.len());
-        let page_beg = (dst as usize) >> 12;
-        let page_end = (end as usize - 1) >> 12;
+        let end = dst + src.len();
+        let page_beg = dst >> 12;
+        let page_end = (end - 1) >> 12;
         if page_beg == page_end {
             return core_to_user_0(self, dst, src);
         } else {
@@ -73,17 +73,17 @@ impl PageAddress {
     }
 
     /** Validate the input pointer. */
-    pub unsafe fn validate_ptr(self, dst : *const u8, len : usize, flag : PTEFlag) {
+    pub unsafe fn validate_ptr(self, dst : usize, len : usize, flag : PTEFlag) {
         if len == 0 { return; }
-        let end = dst.wrapping_add(len);
-        let page_beg = (dst as usize) >> 12;
-        let page_end = (end as usize - 1) >> 12;
+        let end = dst + len;
+        let page_beg = dst >> 12;
+        let page_end = (end - 1) >> 12;
         return validate_pointer(self, dst, page_end - page_beg, flag);
     }
 
     /** Return the iterator at given address. */
-    unsafe fn get_iterator(mut self, src : *const u8) -> PageIterator {
-        let page = src as usize >> 12;
+    unsafe fn get_iterator(mut self, src : usize) -> PageIterator {
+        let page = src >> 12;
         let ppn0 = (page >> 18) & 0x1FF;
         let ppn1 = (page >> 9 ) & 0x1FF;
         let ppn2 = (page >> 0 ) & 0x1FF;
@@ -143,7 +143,7 @@ impl PageAddress {
  * Build up a mapping from a virtual address to a physical address at given page table.
  */
 unsafe fn vmmap(mut root : PageAddress, virt : usize, phys : PageAddress, __flag : PTEFlag) {
-    let virt = (virt >> 12) as usize;
+    let virt =  virt >> 12;
     let ppn0 = (virt >> 18) & 0x1FF;
     let ppn1 = (virt >> 9 ) & 0x1FF;
     let ppn2 = (virt >> 0 ) & 0x1FF;
@@ -180,8 +180,8 @@ unsafe fn vmmap(mut root : PageAddress, virt : usize, phys : PageAddress, __flag
  * Copy from kernel to user in one page.
 */
 unsafe fn core_to_user_0(
-    root : PageAddress, beg : *mut u8, src : &[u8]) {
-    let offset  = block_offset(beg as _);
+    root : PageAddress, beg : usize, src : &[u8]) {
+    let offset  = block_offset(beg);
     let iter    = root.get_iterator(beg);
 
     let (addr, flag) = (*iter.leaf).get_entry();
@@ -192,8 +192,8 @@ unsafe fn core_to_user_0(
 }
 
 unsafe fn user_to_core_0(
-    root : PageAddress, beg : *const u8, mut vec : Vec<u8>) -> Box<[u8]> {
-    let offset  = block_offset(beg as _);
+    root : PageAddress, beg : usize, mut vec : Vec<u8>) -> Box<[u8]> {
+    let offset  = block_offset(beg);
     let iter    = root.get_iterator(beg);
 
     let (addr, flag) = (*iter.leaf).get_entry();
@@ -201,7 +201,7 @@ unsafe fn user_to_core_0(
 
     let addr = addr.address().wrapping_add(offset);
     let size = vec.capacity() - vec.len();
-    vec.extend(core::slice::from_raw_parts(addr as _, size));
+    vec.extend(core::slice::from_raw_parts(addr, size));
 
     return vec.into_boxed_slice();
 }
@@ -210,7 +210,7 @@ unsafe fn user_to_core_0(
  * Validate the pointer in a range of pages.
  */
 unsafe fn validate_pointer(
-    addr : PageAddress, beg : *const u8, mut cnt : usize, test : PTEFlag) {
+    addr : PageAddress, beg : usize, mut cnt : usize, test : PTEFlag) {
     let mut iter = addr.get_iterator(beg);
     loop {
         let (_, flag) = (*iter.leaf).get_entry();

@@ -48,7 +48,7 @@ impl Request {
                 Argument::Register(args[0], args[1])
             },
             1 => {
-                Argument::Buffered((process).root.user_to_core(args[0] as _, args[1]))
+                Argument::Buffered((process).root.user_to_core(args[0], args[1]))
             },
             _ => panic!("Invalid argument"),
         };
@@ -80,8 +80,7 @@ impl Request {
                     return false;
                 }
 
-                let usr_buf = trap_frame.a0 as *mut u8;
-                target.root.core_to_user(usr_buf, buffer);
+                target.root.core_to_user(trap_frame.a0, buffer);
             },
             Argument::Pointer(_, _) => {
                 // This is a zero-copy optimization.
