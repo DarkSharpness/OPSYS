@@ -1,3 +1,7 @@
+extern crate alloc;
+
+use alloc::{boxed::Box, vec::Vec};
+
 use crate::alloc::page::{A, D, G, R, V, W, X};
 
 struct PageIterator {
@@ -32,18 +36,38 @@ impl PageAddress {
     }
 
     /**
+     * Copy from a user pointer to a kernel pointer.
+     * This will check the permission of the user pointer.
+     * It should be at least U + R + V.
+     */
+    pub unsafe fn user_to_core(self, src : *const u8, len : usize) -> Box<[u8]> {
+        if len == 0 { return Box::new([]); }
+        let vec : Vec <u8> = Vec::with_capacity(len);
+        let end = src.wrapping_add(len);
+        let page_beg = (src as usize) >> 12;
+        let page_end = (end as usize - 1) >> 12;
+        if page_beg == page_end {
+            return user_to_core_0(self, src, vec);
+        } else {
+            todo!("Implement user_to_core for multiple pages.");
+            // return copy_from_user_1(self, src, len, vec);
+        }
+    }
+
+    /**
      * Copy from a kernel pointer to a user pointer.
      * This will check the permission of the user pointer.
      * It should be at least U + W + V.
      */
-    pub unsafe fn core_to_user(self, dst : *mut u8 , src : *const u8, len : usize) {
-        let end = dst.wrapping_add(len);
+    pub unsafe fn core_to_user(self, dst : *mut u8 , src : &[u8]) {
+        if src.len() == 0 { return; }
+        let end = dst.wrapping_add(src.len());
         let page_beg = (dst as usize) >> 12;
         let page_end = (end as usize - 1) >> 12;
-        if page_beg >= page_end {
-            return core_to_user_0(self, dst, len, src);
+        if page_beg == page_end {
+            return core_to_user_0(self, dst, src);
         } else {
-            todo!("Implement copy_to_user for multiple pages.");
+            todo!("Implement core_to_user for multiple pages.");
             // return copy_to_user_1(self, dst, len, src);
         }
     }
@@ -156,15 +180,30 @@ unsafe fn vmmap(mut root : PageAddress, virt : usize, phys : PageAddress, __flag
  * Copy from kernel to user in one page.
 */
 unsafe fn core_to_user_0(
-    addr : PageAddress, beg : *mut u8, len : usize, src : *const u8) {
+    root : PageAddress, beg : *mut u8, src : &[u8]) {
     let offset  = block_offset(beg as _);
-    let iter    = addr.get_iterator(beg);
+    let iter    = root.get_iterator(beg);
 
     let (addr, flag) = (*iter.leaf).get_entry();
     assert!(flag.contains(U | W | V), "Invalid page table mapping!");
 
     let addr = addr.address().wrapping_add(offset);
-    return addr.copy_from(src, len);
+    return addr.copy_from(src.as_ptr(), src.len());
+}
+
+unsafe fn user_to_core_0(
+    root : PageAddress, beg : *const u8, mut vec : Vec<u8>) -> Box<[u8]> {
+    let offset  = block_offset(beg as _);
+    let iter    = root.get_iterator(beg);
+
+    let (addr, flag) = (*iter.leaf).get_entry();
+    assert!(flag.contains(U | R | V), "Invalid page table mapping!");
+
+    let addr = addr.address().wrapping_add(offset);
+    let size = vec.capacity() - vec.len();
+    vec.extend(core::slice::from_raw_parts(addr as _, size));
+
+    return vec.into_boxed_slice();
 }
 
 /**
