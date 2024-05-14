@@ -1,7 +1,7 @@
 mod service;
 
 extern crate alloc;
-use alloc::{boxed::Box, collections::VecDeque};
+use alloc::{boxed::Box, collections::VecDeque, vec::Vec};
 
 use crate::proc::{pid_to_process, PidType, Process, ProcessStatus};
 
@@ -28,37 +28,20 @@ impl Request {
     unsafe fn new_block(args : &[usize], process : &mut Process) -> Self {
         process.sleep_as(ProcessStatus::SERVICE);
         let kind = args[3];
-        let args = match args[2] {
-            0 => {
-                Argument::Register(args[0], args[1])
-            },
-            1 => {
-                Argument::Buffered((process).root.user_to_core(args[0] as _, args[1]))
-            },
-            _ => panic!("Invalid argument"),
-        };
+        let args = Argument::new(args, process);
         let handle = process_to_handle(process);
         return Self { kind, args, handle };
     }
 
     unsafe fn new_async(args : &[usize], process : &mut Process) -> Self {
         let kind = args[3];
-        let args = match args[2] {
-            0 => {
-                Argument::Register(args[0], args[1])
-            },
-            1 => {
-                Argument::Buffered((process).root.user_to_core(args[0], args[1]))
-            },
-            _ => panic!("Invalid argument"),
-        };
+        let args = Argument::new(args, process);
         let handle = ServiceHandle::new_async();
         return Self { kind, args, handle };
     }
 
     unsafe fn forward(&mut self, target : &mut Process) -> bool {
         let trap_frame = &mut *target.trap_frame;
-
         match &mut self.args {
             Argument::Register(a0, a1) => {
                 trap_frame.a0 = *a0;
@@ -80,7 +63,7 @@ impl Request {
                     return false;
                 }
 
-                target.root.core_to_user(trap_frame.a0, buffer);
+                target.root.core_to_user(trap_frame.a0, buffer.len() , buffer);
             },
             Argument::Pointer(_, _) => {
                 // This is a zero-copy optimization.
@@ -91,6 +74,26 @@ impl Request {
         return true;
     }
 }
+
+impl Argument {
+    unsafe fn new(args : &[usize], process : &mut Process) -> Self {
+        match args[2] {
+            0 => {
+                Self::Register(args[0], args[1])
+            },
+            1 => {
+                let mut tmp : Vec<u8> = Vec::new();
+                tmp.resize(args[1], 0);
+
+                let mut dst = tmp.into_boxed_slice();
+                process.root.user_to_core(&mut dst, args[0], args[1]);
+                Self::Buffered(dst)
+            },
+            _ => panic!("Invalid argument"),
+        }
+    }
+}
+
 
 impl ServiceHandle {
     pub fn new(size : usize) -> Self { return Self(size); }
