@@ -1,6 +1,6 @@
 use alloc::collections::VecDeque;
 
-use crate::console::print_separator;
+use crate::{console::print_separator, proc::Process};
 
 use super::console::Console;
 extern crate alloc;
@@ -29,15 +29,6 @@ pub unsafe fn handle() {
 pub unsafe fn sync_putc(c : u8) {
     while UART.can_write() == false {}
     return UART.putc(c);
-}
-
-/**
- * Try to put a char to the console.
- * The char will be sent when there's available time.
- */
-pub unsafe fn putc(c : u8) {
-    WRITE_BUFFER.push_char(c);
-    uart_try_send();
 }
 
 unsafe fn uart_try_send() {
@@ -124,16 +115,31 @@ mod ier {
     pub const TX_ENABLE : u8 = 0x1 << 1;    // Enable transmitter holding register
 }
 mod dll {
-    pub const BPS_38400 : u8 = 0x3;        // 38.4K baud rate
-    pub const BPS_57600 : u8 = 0x2;        // 57.6K baud rate
+    pub const BPS_38400 : u8 = 0x3;         // 38.4K baud rate
+    pub const BPS_57600 : u8 = 0x2;         // 57.6K baud rate
     pub const BPS_115200 : u8 = 0x1;        // 115.2K baud rate
 }
 mod dlm {
-    pub const BPS_38400 : u8 = 0x0;        // 38.4K baud rate
-    pub const BPS_57600 : u8 = 0x0;        // 57.6K baud rate
+    pub const BPS_38400 : u8 = 0x0;         // 38.4K baud rate
+    pub const BPS_57600 : u8 = 0x0;         // 57.6K baud rate
     pub const BPS_115200 : u8 = 0x0;        // 115.2K baud rate
 }
 mod lsr {
-    pub const TX_IDLE : u8 = 0x1 << 5;     // Transmitter idle
-    pub const RX_DONE : u8 = 0x1 << 0;     // Receiver FIFO not empty
+    pub const TX_IDLE : u8 = 0x1 << 5;      // Transmitter idle
+    pub const RX_DONE : u8 = 0x1 << 0;      // Receiver FIFO not empty
+}
+
+pub unsafe fn console_read(process : &mut Process, dst : usize, len : usize) -> usize {
+    let stdin = &mut CONSOLE.stdin;
+    let len = core::cmp::min(len, stdin.len());
+    process.root.core_to_user(dst, len, stdin);
+    stdin.drain(..len);
+    return len;
+}
+
+pub unsafe fn console_write(process : &mut Process, src : usize, len : usize) -> usize {
+    let buffer = &mut WRITE_BUFFER.0;
+    buffer.reserve(len);
+    process.root.user_to_core(buffer, src, len);
+    return len;
 }

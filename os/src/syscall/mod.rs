@@ -22,6 +22,8 @@ impl CPU {
             SYS_REQUEST     => self.sys_request(),
             SYS_RECEIVE     => self.sys_receive(),
             SYS_RESPOND     => self.sys_respond(),
+            SYS_READ        => self.sys_read(),
+            SYS_WRITE       => self.sys_write(),
             _ => unknown_syscall(index, trap_frame),
         }
     }

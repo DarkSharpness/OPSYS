@@ -1,4 +1,4 @@
-use crate::{cpu::CPU, service::ServiceHandle};
+use crate::{cpu::CPU, driver::uart::{console_read, console_write}, service::ServiceHandle};
 
 impl CPU {
     /** Reset the timer and yield to another process. */
@@ -44,5 +44,21 @@ impl CPU {
         let trap_frame  = &mut *(*process).trap_frame;
         let handle      = ServiceHandle::new(trap_frame.a5);
         return self.service_respond(handle);
+    }
+
+    pub unsafe fn sys_read(&mut self){
+        let process    = self.get_process();
+        let trap_frame = &mut *(*process).trap_frame;
+        // let fd         = trap_frame.a0;
+
+        trap_frame.a0 = console_read(&mut *process, trap_frame.a1, trap_frame.a2);
+    }
+
+    pub unsafe fn sys_write(&mut self){
+        let process    = self.get_process();
+        let trap_frame = &mut *(*process).trap_frame;
+        // let fd         = trap_frame.a0;
+
+        trap_frame.a0 = console_write(&mut *process, trap_frame.a1, trap_frame.a2);
     }
 }
