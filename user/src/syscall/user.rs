@@ -88,3 +88,9 @@ pub unsafe fn sys_read(fd : FileDescriptor, buf : *mut u8, len : usize) -> isize
 }
 
 pub unsafe fn sys_yield() { syscall0(SYS_YIELD); }
+
+impl FileDescriptor {
+    pub unsafe fn new(fd : isize) -> FileDescriptor {
+        return FileDescriptor(fd);
+    }
+}

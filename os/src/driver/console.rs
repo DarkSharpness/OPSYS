@@ -1,15 +1,16 @@
 extern crate alloc;
 
 use alloc::{collections::VecDeque, vec::Vec};
+use crate::proc::{Process, ProcessStatus};
+
 use super::uart::sync_putc;
 
 pub struct Console {
     pub(crate) stdin : VecDeque<u8>,
     buffer  : Vec<u8>,  // Input buffer
     length  : usize,    // Last written position
+    queue   : VecDeque<*mut Process>,
 }
-
-static mut CONSOLE : Console = Console::new();
 
 unsafe fn backspace() {
     sync_putc(8 as u8);
@@ -30,6 +31,7 @@ impl Console {
             stdin   : VecDeque::new(),
             buffer  : Vec::new(),
             length  : 0,
+            queue   : VecDeque::new(),
         }
     }
 
@@ -45,7 +47,9 @@ impl Console {
             self.buffer.clear();
             self.length = 0;
 
-            todo!("Wake up reading process");
+            while let Some(process) = self.queue.pop_front() {
+                (*process).wake_up_from(ProcessStatus::SERVICE);
+            }
         } else {
             sync_putc(c);
             self.buffer.push(c);
@@ -55,6 +59,13 @@ impl Console {
     pub unsafe fn putc(&mut self, c : u8) {
         sync_putc(c);
         self.length = self.buffer.len();
+    }
+
+    pub unsafe fn try_read(&mut self, process : *mut Process) {
+        while self.stdin.len() == 0 {
+            self.queue.push_back(process);
+            (*process).sleep_as(ProcessStatus::SERVICE);
+        }
     }
 
     /// Remove a character from input
