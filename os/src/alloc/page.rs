@@ -35,8 +35,10 @@ bitflags! {
     impl PTEFlag : usize {
         const XO = V.0 | X.0;       // Execute-only
         const RO = V.0 | R.0;       // Read-only
+        const WO = V.0 | W.0;       // Write-only
         const RX = V.0 | R.0 | X.0; // Read-execute
         const RW = V.0 | R.0 | W.0; // Read-write
+
 
         const NEXT      = 1;        // Next level of page table
         const INVALID   = 0;        // Invalid page table entry

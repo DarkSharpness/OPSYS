@@ -1,8 +1,9 @@
 extern crate alloc;
 
-use core::ptr::null_mut;
+use core::ptr::{addr_of, null_mut};
 use core::sync::atomic::AtomicUsize;
 
+use alloc::boxed::Box;
 use alloc::collections::VecDeque;
 use alloc::str;
 use alloc::vec::Vec;
@@ -31,8 +32,8 @@ pub unsafe fn init_process() {
     // Plan to rewrite in the future.
     manager.process_queue.reserve(32);
 
-    manager.add_process(Process::new_test("Demo Program 0", true));
-    manager.add_process(Process::new_test("Demo Program 1", true));
+    manager.add_process(Process::new_test("Demo Program 0", 0));
+    // manager.add_process(Process::new_test("Demo Program 1", 1));
 }
 
 impl Process {
@@ -79,7 +80,54 @@ impl Process {
         };
     }
 
-    unsafe fn new_test(name : &'static str, which : bool) -> Process {
+    unsafe fn new_test(name : &'static str, which : usize) -> Process {
+        let process = Process::demo(name, null_mut());
+        let text = PageAddress::new_zero_page();
+        process.root.umap(0, text, PTEFlag::RX | PTEFlag::OWNED);
+        extern "C" { static _num_app : usize; }
+
+        let num : usize = _num_app;
+        assert!(which < num, "Invalid test number!");
+
+        let addr = addr_of!(_num_app).wrapping_add(1);
+
+        let program_start   = *addr.wrapping_add(which * 2);
+        let program_finish  = *addr.wrapping_add(which * 2 + 1);
+
+        let data : Box<[u8]> = {
+            let mut data : Vec<u8> = Vec::with_capacity(program_finish - program_start);
+            for ptr in program_start..program_finish {
+                data.push(*(ptr as *const u8));
+            }
+            data.into_boxed_slice()
+        };
+
+        let elf = xmas_elf::ElfFile::new(&data).unwrap();
+        let elf_header = elf.header;
+        let magic = elf_header.pt1.magic;
+        assert_eq!(magic, [0x7f, 0x45, 0x4c, 0x46], "invalid elf!");
+        let ph_count = elf_header.pt2.ph_count();
+        for i in 0..ph_count {
+            let ph = elf.program_header(i).unwrap();
+            if ph.get_type().unwrap() == xmas_elf::program::Type::Load {
+                let start_va    = ph.virtual_addr() as usize;
+                let end_va      = (ph.virtual_addr() + ph.mem_size()) as usize;
+
+                let mut permission = PTEFlag::INVALID;
+                let ph_flags = ph.flags();
+                if ph_flags.is_read() { permission |= PTEFlag::RO; }
+                if ph_flags.is_write() { permission |= PTEFlag::RW; }
+                if ph_flags.is_execute() { permission |= PTEFlag::WO; }
+                message!("From {} to {}", start_va, end_va);
+
+                todo!("map the segment to memory in page table");
+            }
+        }
+
+        return process;
+    }
+
+    unsafe fn old_test(name : &'static str, which : bool) -> Process {
         let process = Process::demo(name, null_mut());
         let text = PageAddress::new_zero_page();
         process.root.umap(0, text, PTEFlag::RX | PTEFlag::OWNED);

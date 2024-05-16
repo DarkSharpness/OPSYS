@@ -12,3 +12,4 @@ opt-level = 0
 riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
 sys = { path = "../sys" }
 bitflags = "2.5.0"
+xmas-elf = "0.9.1"

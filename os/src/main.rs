@@ -28,9 +28,6 @@ extern "C" {
 unsafe fn os_main() {
     init_tid_and_end_address();
     driver::init();
-
-    message!("{}", _num_app as usize);
-
     proc::init_process();
     proc::run_process();
     driver::shutdown();
