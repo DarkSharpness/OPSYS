@@ -37,6 +37,7 @@ impl CPU {
         let port    = args[4];
         let service = &mut SERVICE[port];
 
+        process.sleep_as(ProcessStatus::SERVICE);
         service.waiting.push_back(Request::new_block(&args[ 0..3 ], process));
 
         if !service.servant.is_null() {

@@ -1,6 +1,7 @@
 extern crate alloc;
 
 use alloc::{boxed::Box, collections::VecDeque, vec::Vec};
+use xmas_elf::{program::ProgramHeader, ElfFile};
 
 use crate::alloc::page::{A, D, G, R, V, W, X};
 
@@ -10,7 +11,7 @@ struct PageIterator {
     leaf    : *mut PageTableEntry,
 }
 
-use super::{page::{PTEFlag, PageAddress, PageTableEntry, U}, PAGE_BITS};
+use super::{page::{PTEFlag, PageAddress, PageTableEntry, U}, PAGE_BITS, PAGE_SIZE};
 
 impl core::ops::Index<usize> for PageAddress {
     type Output = PageTableEntry;
@@ -95,6 +96,34 @@ impl PageAddress {
         } else {
             todo!("Implement user_to_core for multiple pages.");
             // return copy_from_user_1(self, src, len, vec);
+        }
+    }
+
+    /** Load a program header from an ELF file. */
+    pub unsafe fn load_from_elf(&mut self, ph : ProgramHeader, elf : &ElfFile) {
+        let start_va    = ph.virtual_addr() as usize;
+        let end_va      = (ph.virtual_addr() + ph.mem_size()) as usize;
+        if start_va == end_va { return; }
+
+        let mut permission = PTEFlag::OWNED;
+        let ph_flags = ph.flags();
+        if ph_flags.is_read() { permission |= PTEFlag::RO; }
+        if ph_flags.is_write() { permission |= PTEFlag::WO; }
+        if ph_flags.is_execute() { permission |= PTEFlag::RX; }
+
+        let start_page  = start_va      / PAGE_SIZE;
+        let end_page    = (end_va - 1)  / PAGE_SIZE;
+        let offset      = ph.offset() as usize;
+        let data = &elf.input[offset..offset + ph.file_size() as usize];
+        if start_page == end_page {
+            let page = PageAddress::new_rand_page();
+            self.umap(start_va, page, permission);
+            let address = page.address().wrapping_add(start_va % PAGE_SIZE);
+            for i in 0..data.len() {
+                address.wrapping_add(i).write(data[i]);
+            }
+        } else {
+            todo!("Implement load_from_elf for multiple pages.");
         }
     }
 

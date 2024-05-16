@@ -45,8 +45,6 @@ pub unsafe fn user_trap() {
                 // Load out the syscall id in a7
                 // Load out the arguments in a0, a1, a2
                 cpu.syscall();
-
-                todo!("Handle the user syscall");
             }
             _ => panic!("Unable to resolve exception {:?}", exception),
         }

@@ -45,10 +45,17 @@ pub struct ProcessManager {
     pub batch_size      : usize,
 }
 
+/** Run the process. */
+unsafe fn run(process : *mut Process) {
+    assert_eq!((*process).status, ProcessStatus::RUNNABLE);
+    (*process).status = ProcessStatus::RUNNING;
+}
+
 impl CPU {
     /** Switch from current process to new process. Timer is untouched. */
     pub unsafe fn switch_to(&mut self, new : *mut Process) {
         let old = self.get_process();
+        run(new);
         switch_context((*old).get_context(), (*new).get_context());
     }
 
@@ -61,7 +68,8 @@ impl CPU {
 
     /** Switch from scheduler to the new process. Timer is reset. */
     pub unsafe fn scheduler_yield(&mut self, new : *mut Process) {
-        self.reset_timer_time();
+        assert_eq!((*new).status, ProcessStatus::RUNNABLE);
+        run(new);
         switch_context(self.get_context(), (*new).get_context());
     }
 }

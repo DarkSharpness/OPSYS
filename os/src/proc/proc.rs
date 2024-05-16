@@ -3,7 +3,6 @@ extern crate alloc;
 use core::ptr::{addr_of, null_mut};
 use core::sync::atomic::AtomicUsize;
 
-use alloc::boxed::Box;
 use alloc::collections::VecDeque;
 use alloc::str;
 use alloc::vec::Vec;
@@ -81,7 +80,7 @@ impl Process {
     }
 
     unsafe fn new_test(name : &'static str, which : usize) -> Process {
-        let process = Process::demo(name, null_mut());
+        let mut process = Process::demo(name, null_mut());
         let text = PageAddress::new_zero_page();
         process.root.umap(0, text, PTEFlag::RX | PTEFlag::OWNED);
         extern "C" { static _num_app : usize; }
@@ -93,14 +92,10 @@ impl Process {
 
         let program_start   = *addr.wrapping_add(which * 2);
         let program_finish  = *addr.wrapping_add(which * 2 + 1);
+        let program_length  = program_finish - program_start;
 
-        let data : Box<[u8]> = {
-            let mut data : Vec<u8> = Vec::with_capacity(program_finish - program_start);
-            for ptr in program_start..program_finish {
-                data.push(*(ptr as *const u8));
-            }
-            data.into_boxed_slice()
-        };
+        let data : &[u8] = core::slice::from_raw_parts(
+            program_start as *const u8, program_length);
 
         let elf = xmas_elf::ElfFile::new(&data).unwrap();
         let elf_header = elf.header;
@@ -110,20 +105,11 @@ impl Process {
         for i in 0..ph_count {
             let ph = elf.program_header(i).unwrap();
             if ph.get_type().unwrap() == xmas_elf::program::Type::Load {
-                let start_va    = ph.virtual_addr() as usize;
-                let end_va      = (ph.virtual_addr() + ph.mem_size()) as usize;
-
-                let mut permission = PTEFlag::INVALID;
-                let ph_flags = ph.flags();
-                if ph_flags.is_read() { permission |= PTEFlag::RO; }
-                if ph_flags.is_write() { permission |= PTEFlag::RW; }
-                if ph_flags.is_execute() { permission |= PTEFlag::WO; }
-                message!("From {} to {}", start_va, end_va);
-
-                todo!("map the segment to memory in page table");
+                message!("{}", ph);
+                process.root.load_from_elf(ph, &elf);
             }
         }
-
+        (*process.trap_frame).pc = elf.header.pt2.entry_point() as usize;
         return process;
     }
 
@@ -170,7 +156,7 @@ impl Process {
     /** Wake up from given status. */
     pub fn wake_up_from(&mut self, status : ProcessStatus) {
         assert_eq!(self.status, status, "Invalid to wake up!");
-        self.status = ProcessStatus::RUNNING;
+        self.status = ProcessStatus::RUNNABLE;
     }
 }
 

@@ -1,19 +1,27 @@
+use core::arch::asm;
 use riscv::register::*;
-
-use crate::cpu::current_cpu;
+use crate::driver::plic;
 
 #[no_mangle]
 unsafe fn core_trap() {
     assert!(sstatus::read().spp() == sstatus::SPP::Supervisor,
-        "Kernel trap from user mode. WTF?");
-    let cause = scause::read().cause();
-    warning!("core_trap\n");
-    warning!("- cause {:?}", cause);
-    warning!("- epc {:#x}", riscv::register::sepc::read());
-    let process = current_cpu().get_process();
-    if process.is_null() {
-        panic!("Kernel process in core_trap");
-    } else {
-        panic!("Process {} in core_trap", (*process).pid.bits());
+        "User trap from supervisor mode. WTF?");
+
+    use scause::{Trap, Interrupt};
+    match scause::read().cause() {
+        Trap::Interrupt(interrupt) => match interrupt {
+            Interrupt::SupervisorSoft => {
+                // Simply acknowledge the software interrupt
+                asm!("csrci sip, 2");
+            },
+            Interrupt::SupervisorExternal => {
+                // Acknowledge the external interrupt
+                plic::resolve();
+                asm!("csrc sip, {}", in(reg) 1 << 9);
+            }
+            _ => panic!("Unable to resolve interrupt {:?}", interrupt),   
+        },
+
+        Trap::Exception(exception) => panic!("Unhandled exception: {:?}", exception),
     }
 }

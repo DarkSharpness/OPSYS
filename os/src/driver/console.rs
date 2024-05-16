@@ -1,7 +1,7 @@
 extern crate alloc;
 
 use alloc::{collections::VecDeque, vec::Vec};
-use crate::proc::{Process, ProcessStatus};
+use crate::{cpu::CPU, proc::{Process, ProcessStatus}};
 
 use super::uart::sync_putc;
 
@@ -61,11 +61,18 @@ impl Console {
         self.length = self.buffer.len();
     }
 
-    pub unsafe fn try_read(&mut self, process : *mut Process) {
+    pub unsafe fn try_read
+        (&mut self, cpu : &mut CPU, dst : usize, len : usize) -> usize {
+        let process = &mut *cpu.get_process();
+        self.queue.push_back(process);
         while self.stdin.len() == 0 {
-            self.queue.push_back(process);
             (*process).sleep_as(ProcessStatus::SERVICE);
+            cpu.process_yield();
         }
+        let len = core::cmp::min(len, self.stdin.len());
+        process.root.core_to_user(dst, len, &mut self.stdin);
+        self.stdin.drain(..len);
+        return len;
     }
 
     /// Remove a character from input

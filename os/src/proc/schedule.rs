@@ -1,5 +1,7 @@
+use core::ptr::null_mut;
+
 use crate::{cpu::{current_cpu, CPU}, trap::Interrupt};
-use super::Process;
+use super::{Process, ProcessStatus};
 
 pub unsafe fn run_process() {
     logging!("Starting process scheduler...");
@@ -10,9 +12,13 @@ pub unsafe fn run_process() {
         let prev_task   = cpu.get_process();
         assert!(prev_task.is_null(), "Task should be null");
         let next_task   = cpu.next_process();
+        // Try to listen to the interrupt
+        if !next_task.is_null() {
+            cpu.scheduler_yield(next_task);
+            cpu.complete_process(next_task);
+        }
 
-        cpu.scheduler_yield(next_task);
-        cpu.complete_process(next_task);
+        Interrupt::enable(); 
     }
 }
 
@@ -30,6 +36,7 @@ impl CPU {
         }
 
         let process = &mut manager.process_queue[manager.batch_iter];
+        if (*process).status != ProcessStatus::RUNNABLE { return null_mut(); }
 
         manager.running_process = process;
         manager.batch_iter += 1;

@@ -3,7 +3,7 @@ mod service;
 extern crate alloc;
 use alloc::{boxed::Box, collections::VecDeque, vec::Vec};
 
-use crate::proc::{pid_to_process, PidType, Process, ProcessStatus};
+use crate::proc::{pid_to_process, PidType, Process};
 
 pub(crate) struct ServiceHandle(usize);
 
@@ -26,7 +26,6 @@ struct Service {
 
 impl Request {
     unsafe fn new_block(args : &[usize], process : &mut Process) -> Self {
-        process.sleep_as(ProcessStatus::SERVICE);
         let kind = args[3];
         let args = Argument::new(args, process);
         let handle = process_to_handle(process);
