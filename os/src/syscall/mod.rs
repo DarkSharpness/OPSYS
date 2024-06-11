@@ -1,4 +1,7 @@
-mod syscall;
+mod fs;
+mod ipc;
+mod process;
+
 use crate::{cpu::CPU, driver::shutdown, trap::TrapFrame};
 
 /// Handle those unknown syscalls

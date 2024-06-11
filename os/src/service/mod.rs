@@ -8,7 +8,7 @@ pub use handle::ServiceHandle;
 use request::Request;
 use service::Service;
 
-use crate::{cpu::CPU, proc::ProcessStatus};
+use crate::{alloc::PTEFlag, cpu::CPU, proc::ProcessStatus};
 
 const MAX_SERVICE : usize = 16;
 const ARRAY_REPEAT_VALUE: Service = Service::new();
@@ -20,7 +20,6 @@ impl CPU {
         let request = service.wait_for_request(self);
         if request.forward(&mut *self.get_process()) {
             service.pop_front();
-        } else { // Set as failed
         }
     }
 
@@ -32,6 +31,8 @@ impl CPU {
     }
 
     pub unsafe fn service_request_block(&mut self, args : [usize; 5]) {
+        self.address_check(&args, PTEFlag::RO);
+
         let process = &mut *self.get_process();
         let port    = args[4];
         let service = &mut SERVICE[port];
@@ -46,6 +47,8 @@ impl CPU {
     }
 
     pub unsafe fn service_request_async(&mut self, args : [usize; 5]) {
+        self.address_check(&args, PTEFlag::RO);
+
         let process = &mut *self.get_process();
         let port    = args[4];
         let service = &mut SERVICE[port];

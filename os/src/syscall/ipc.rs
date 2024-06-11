@@ -1,4 +1,4 @@
-use crate::{cpu::CPU, service::ServiceHandle};
+use crate::{alloc::PTEFlag, cpu::CPU, service::ServiceHandle};
 
 impl CPU {
     /** Reset the timer and yield to another process. */
@@ -46,42 +46,12 @@ impl CPU {
         return self.service_respond(handle);
     }
 
-    pub unsafe fn sys_read(&mut self){
-        let process     = self.get_process();
-        let trap_frame  = (*process).get_trap_frame();
-        trap_frame.a0   = self.console_read(trap_frame.a1, trap_frame.a2);
+    pub unsafe fn address_check(&mut self, args : &[usize], flag : PTEFlag) {
+        if args[2] != 0 {
+            let process = &mut *self.get_process();
+            if !process.get_satp().check_ptr(args[0], args[1], flag) {
+                self.exit_as(1);
+            }
+        }
     }
-
-    pub unsafe fn sys_write(&mut self){
-        let process     = self.get_process();
-        let trap_frame  = (*process).get_trap_frame();
-        trap_frame.a0   = self.console_write(trap_frame.a1, trap_frame.a2);
-    }
-
-    pub unsafe fn sys_fork(&mut self){
-        let child       = self.fork();
-        let child_pid   = child.get_pid().raw_bits();
-
-        use sys::syscall::*;
-        self.service_request_block([child_pid, 0, 0, PM_FORK, PM_PORT]);
-    }
-
-    pub unsafe fn sys_exit(&mut self){
-        let process     = self.get_process();
-        let trap_frame  = (*process).get_trap_frame();
-
-        use sys::syscall::*;
-        if true { todo!() }
-
-        self.service_request_block([trap_frame.a0, 0, 0, PM_EXIT, PM_PORT]);
-    }
-
-    pub unsafe fn sys_wait(&mut self){
-        let process     = self.get_process();
-        let trap_frame  = (*process).get_trap_frame();
-
-        use sys::syscall::*;
-        self.service_request_block([trap_frame.a0, 0, 0, PM_WAIT, PM_PORT]);
-    }
-
 }
