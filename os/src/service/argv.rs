@@ -1,7 +1,7 @@
 extern crate alloc;
 use alloc::{boxed::Box, vec::Vec};
 
-use crate::proc::Process;
+use crate::{proc::Process, utility::SliceIter};
 
 pub enum Argument {
     Register(usize, usize),     // In 2 registers.
@@ -18,9 +18,8 @@ impl Argument {
             1 => {
                 let mut tmp : Vec<u8> = Vec::new();
                 tmp.resize(args[1], 0);
-
                 let mut dst = tmp.into_boxed_slice();
-                process.get_satp().user_to_core(&mut dst, args[0], args[1]);
+                process.get_satp().user_to_core(SliceIter::new(&mut dst), args[0], args[1]);
                 Self::Buffered(dst)
             },
             _ => panic!("Invalid argument"),

@@ -1,7 +1,7 @@
 extern crate alloc;
 
 use alloc::{collections::VecDeque, vec::Vec};
-use crate::{cpu::CPU, proc::{Process, ProcessStatus}};
+use crate::{cpu::CPU, proc::{Process, ProcessStatus}, utility::DequeIter};
 
 use super::uart::sync_putc;
 
@@ -70,8 +70,8 @@ impl Console {
             cpu.process_yield();
         }
         let len = core::cmp::min(len, self.stdin.len());
-        process.get_satp().core_to_user(dst, len, &mut self.stdin);
-        self.stdin.drain(..len);
+        process.get_satp().
+            core_to_user(dst, len, DequeIter::new(&mut self.stdin));
         return len;
     }
 

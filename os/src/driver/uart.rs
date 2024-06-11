@@ -1,6 +1,6 @@
 use alloc::collections::VecDeque;
 
-use crate::{console::print_separator, cpu::CPU};
+use crate::{console::print_separator, cpu::CPU, utility::DequeIter};
 
 use super::console::Console;
 extern crate alloc;
@@ -137,7 +137,7 @@ impl CPU {
         let buffer = &mut WRITE_BUFFER.0;
         buffer.reserve(len);
         let process = &mut (*self.get_process());
-        process.get_satp().user_to_core(buffer, src, len);
+        process.get_satp().user_to_core(DequeIter::new(buffer), src, len);
         uart_try_send();
         return len;
     }

@@ -1,4 +1,4 @@
-use crate::proc::Process;
+use crate::{proc::Process, utility::SliceIter};
 
 use super::{argv::Argument, handle::ServiceHandle};
 
@@ -52,7 +52,8 @@ impl Request {
                     return false;
                 }
 
-                target.get_satp().core_to_user(trap_frame.a0, buffer.len() , buffer);
+                target.get_satp().core_to_user(
+                    trap_frame.a0, buffer.len(), SliceIter::new(buffer));
             },
             Argument::Upointer(_, _) => {
                 // This is a zero-copy optimization.

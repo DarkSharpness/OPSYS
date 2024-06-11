@@ -14,6 +14,7 @@ mod proc;
 mod syscall;
 mod service;
 mod cpu;
+mod utility;
 
 use core::arch::{asm, global_asm};
 

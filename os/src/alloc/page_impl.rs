@@ -1,9 +1,6 @@
 extern crate alloc;
-
-use alloc::{boxed::Box, collections::VecDeque, vec::Vec};
 use xmas_elf::{program::ProgramHeader, ElfFile};
-
-use crate::alloc::page::{A, D, G, R, V, W, X};
+use crate::{alloc::page::{A, D, G, R, V, W, X}, utility::*};
 
 struct PageIterator {
     huge    : *mut PageTableEntry,
@@ -26,33 +23,6 @@ impl core::ops::IndexMut<usize> for PageAddress {
     }
 }
 
-pub trait CanPush { fn push_n(&mut self, src : &[u8]); }
-pub trait CanCopy { fn copy_n(&self, dst : &mut [u8]); }
-
-impl CanPush for Box<[u8]> {
-    fn push_n(&mut self, src : &[u8]) { self.copy_from_slice(src); }
-}
-impl CanPush for Vec<u8> {
-    fn push_n(&mut self, src : &[u8]) { self.extend_from_slice(src); }
-}
-impl CanPush for VecDeque<u8> {
-    fn push_n(&mut self, src : &[u8]) { self.extend(src); }
-}
-impl CanCopy for Box<[u8]> {
-    fn copy_n(&self, dst : &mut [u8]) { dst.copy_from_slice(self); }
-}
-impl CanCopy for Vec<u8> {
-    fn copy_n(&self, dst : &mut [u8]) { dst.copy_from_slice(self); }
-}
-impl CanCopy for VecDeque<u8> {
-    fn copy_n(&self, dst : &mut [u8]) {
-        let mut iter = self.iter();
-        for i in 0..dst.len() {
-            unsafe { dst[i] = *iter.next().unwrap_unchecked(); }
-        }
-    }
-}
-
 impl PageAddress {
     /** Add a supervisor mapping. */
     pub unsafe fn smap(self, virt : usize, phys : PageAddress, flag : PTEFlag) {
@@ -68,17 +38,9 @@ impl PageAddress {
      * This will check the permission of the user pointer.
      * It should be at least U + W + V.
      */
-    pub unsafe fn core_to_user <T : CanCopy> (self, dst : usize, len : usize, src : &mut T) {
+    pub unsafe fn core_to_user <T : CanCopy> (self, dst : usize, len : usize, src : T) {
         if len == 0 { return; }
-        let end = dst + len;
-        let page_beg = dst >> 12;
-        let page_end = (end - 1) >> 12;
-        if page_beg == page_end {
-            return core_to_user_0(self, dst, len, src);
-        } else {
-            todo!("Implement core_to_user for multiple pages.");
-            // return copy_to_user_1(self, dst, len, src);
-        }
+        return copy_to_user_impl(self, dst, len, src);
     }
 
     /**
@@ -86,17 +48,9 @@ impl PageAddress {
      * This will check the permission of the user pointer.
      * It should be at least U + R + V.
      */
-    pub unsafe fn user_to_core <T : CanPush> (self, dst : &mut T, src : usize, len : usize) {
+    pub unsafe fn user_to_core <T : CanPush> (self, dst : T, src : usize, len : usize) {
         if len == 0 { return; }
-        let end = src + len;
-        let page_beg = src >> 12;
-        let page_end = (end - 1) >> 12;
-        if page_beg == page_end {
-            return user_to_core_0(self, dst, src, len);
-        } else {
-            todo!("Implement user_to_core for multiple pages.");
-            // return copy_from_user_1(self, src, len, vec);
-        }
+        return user_to_core_0(self, dst, src, len);
     }
 
     /** Load a program header from an ELF file. */
@@ -232,27 +186,69 @@ unsafe fn vmmap(mut root : PageAddress, virt : usize, phys : PageAddress, __flag
 }
 
 unsafe fn core_to_user_0 <T : CanCopy> (
-    root : PageAddress, dst : usize, len : usize, src : &mut T) {
+    root : PageAddress, dst : usize, len : usize, src : T) {
     let offset  = block_offset(dst);
     let iter    = root.get_iterator(dst);
 
     let (addr, flag) = (*iter.leaf).get_entry();
     assert!(flag.contains(U | W | V), "Invalid page table mapping!");
-
+    
     let addr = addr.address().wrapping_add(offset);
+    let mut src = src;
     return src.copy_n(core::slice::from_raw_parts_mut(addr, len));
 }
 
-unsafe fn user_to_core_0 <T : CanPush> (
-    root : PageAddress, dst : &mut T, src : usize, len : usize) {
-    let offset  = block_offset(src);
-    let iter    = root.get_iterator(src);
+unsafe fn copy_to_user_impl <T : CanCopy> (
+    root : PageAddress, dst : usize, mut len : usize, src : T) {
+    let offset      = block_offset(dst);
+    let mut iter    = root.get_iterator(dst);
+    let (addr,flag) = iter.get_address_flag();
+    let addr        = addr.wrapping_add(offset);
+    let mut src     = src;
 
-    let (addr, flag) = (*iter.leaf).get_entry();
+    assert!(flag.contains(U | W | V), "Invalid page table mapping!");
+
+    let remain = PAGE_SIZE - offset; // Remaining bytes in the first page.
+    if len <= remain {
+        return src.copy_n(core::slice::from_raw_parts_mut(addr, len));
+    } else {
+        len -= remain;
+        src.copy_n(core::slice::from_raw_parts_mut(addr, remain));
+        while len >= PAGE_SIZE {
+            iter.inc();
+            len -= PAGE_SIZE;
+            let (addr, flag) = iter.get_address_flag();
+            assert!(flag.contains(U | W | V), "Invalid page table mapping!");
+            src.copy_n(core::slice::from_raw_parts_mut(addr, PAGE_SIZE));
+        }
+        src.copy_n(core::slice::from_raw_parts_mut(addr, len));
+    }
+}
+
+unsafe fn user_to_core_0 <T : CanPush> (
+    root : PageAddress, dst : T, src : usize, mut len : usize) {
+    let offset      = block_offset(src);
+    let mut iter    = root.get_iterator(src);
+    let (addr,flag) = iter.get_address_flag();
+    let addr        = addr.wrapping_add(offset);
+    let mut dst     = dst;
     assert!(flag.contains(U | R | V), "Invalid page table mapping!");
 
-    let addr = addr.address().wrapping_add(offset);
-    return dst.push_n(core::slice::from_raw_parts(addr, len));
+    let remain = PAGE_SIZE - offset; // Remaining bytes in the first page.
+    if len <= remain {
+        return dst.push_n(core::slice::from_raw_parts(addr, len));
+    } else {
+        len -= remain;
+        dst.push_n(core::slice::from_raw_parts(addr, remain));
+        while len >= PAGE_SIZE {
+            iter.inc();
+            len -= PAGE_SIZE;
+            let (addr, flag) = iter.get_address_flag();
+            assert!(flag.contains(U | R | V), "Invalid page table mapping!");
+            dst.push_n(core::slice::from_raw_parts(addr, PAGE_SIZE));
+        }
+        dst.push_n(core::slice::from_raw_parts(addr, len));
+    }
 }
 
 /**
@@ -313,5 +309,11 @@ impl PageIterator {
             let (mut addr, _) = (*self.next).get_entry();
             self.leaf = &mut addr[0];
         }
+    }
+
+    pub unsafe fn get_address_flag(&self) -> (*mut u8, PTEFlag) {
+        let leaf = &mut *self.leaf;
+        let (addr, flag) = leaf.get_entry();
+        return (addr.address(), flag);
     }
 }
