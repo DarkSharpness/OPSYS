@@ -8,7 +8,7 @@ use alloc::str;
 use alloc::vec::Vec;
 use riscv::register::satp;
 
-use crate::cpu::current_cpu;
+use crate::cpu::{current_cpu, CPU};
 use crate::driver::get_tid;
 use crate::alloc::{PTEFlag, PageAddress, PAGE_SIZE, PAGE_TABLE};
 use crate::proc::ProcessStatus;
@@ -35,8 +35,15 @@ pub unsafe fn init_process() {
     // manager.add_process(Process::new_test("Demo Program 1", 1));
 }
 
+impl CPU {
+    pub unsafe fn sleep_as(&mut self, status : ProcessStatus) {
+        let process = self.get_process();
+        return (*process).sleep_as(status);
+    }
+}
+
 impl Process {
-    unsafe fn demo(name : &'static str, parent : * mut Process) -> Process {
+    unsafe fn demo(name : &'static str) -> Process {
         let root    = PageAddress::new_pagetable();
 
         // Map at least one page for user's stack
@@ -72,15 +79,14 @@ impl Process {
 
         // Complete the resource initialization.
         return Process {
-            exit_code   : 0,
             status      : ProcessStatus::RUNNABLE,
             pid         : allocate_pid(),
-            context, root, parent, name, trap_frame
+            context, root, name, trap_frame
         };
     }
 
     unsafe fn new_test(name : &'static str, which : usize) -> Process {
-        let mut process = Process::demo(name, null_mut());
+        let mut process = Process::demo(name);
         let text = PageAddress::new_zero_page();
         process.root.umap(0, text, PTEFlag::RX | PTEFlag::OWNED);
         extern "C" { static _num_app : usize; }
@@ -114,7 +120,7 @@ impl Process {
     }
 
     unsafe fn old_test(name : &'static str, which : bool) -> Process {
-        let process = Process::demo(name, null_mut());
+        let process = Process::demo(name);
         let text = PageAddress::new_zero_page();
         process.root.umap(0, text, PTEFlag::RX | PTEFlag::OWNED);
 

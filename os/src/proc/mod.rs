@@ -23,16 +23,12 @@ pub enum ProcessStatus {
     SERVICE,    // waiting for some service
     RUNNABLE,   // ready to run, but not running
     SLEEPING,   // blocked by some event
-    ZOMBIE,     // exited but have to be waited by parent
-    DEAD,       // exited and no need to be waited by parent
 }
 
 pub struct Process {
     pub pid         : PidType,          // process id
-    pub exit_code   : i32,              // exit code
     pub status      : ProcessStatus,    // process status
     pub root        : PageAddress,      // root of the page table
-    pub parent      : * mut Process,    // parent process
     pub trap_frame  : * mut TrapFrame,  // trap frame
     pub name        : &'static str,     // process name
     pub context     : Context,          // current context
@@ -51,10 +47,18 @@ unsafe fn run(process : *mut Process) {
     (*process).status = ProcessStatus::RUNNING;
 }
 
+/** Run the process. */
+unsafe fn off(process : *mut Process) {
+    if (*process).status == ProcessStatus::RUNNING {
+        (*process).status = ProcessStatus::RUNNABLE;
+    }
+}
+
 impl CPU {
     /** Switch from current process to new process. Timer is untouched. */
     pub unsafe fn switch_to(&mut self, new : *mut Process) {
         let old = self.get_process();
+        off(old);
         run(new);
         switch_context((*old).get_context(), (*new).get_context());
     }
@@ -63,10 +67,11 @@ impl CPU {
     pub unsafe fn process_yield(&mut self) {
         self.reset_timer_time();
         let old = self.get_process();
+        off(old);
         switch_context((*old).get_context(), self.get_context());
     }
 
-    /** Switch from scheduler to the new process. Timer is reset. */
+    /** Switch from scheduler to the new process. Timer is untouched. */
     pub unsafe fn scheduler_yield(&mut self, new : *mut Process) {
         assert_eq!((*new).status, ProcessStatus::RUNNABLE);
         run(new);

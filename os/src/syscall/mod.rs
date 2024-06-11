@@ -24,6 +24,7 @@ impl CPU {
             SYS_RESPOND     => self.sys_respond(),
             SYS_READ        => self.sys_read(),
             SYS_WRITE       => self.sys_write(),
+            SYS_EXIT        => self.sys_exit(),
             _ => unknown_syscall(index, trap_frame),
         }
     }

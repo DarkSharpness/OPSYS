@@ -1,64 +1,57 @@
-use core::ptr::null_mut;
-use crate::{cpu::CPU, proc::ProcessStatus, service::handle_to_process};
+use crate::{cpu::CPU, proc::{Process, ProcessStatus}};
+extern crate alloc;
+use alloc::collections::VecDeque;
 
-use super::{Request, Service, ServiceHandle};
+use super::request::Request;
 
-const MAX_SERVICE : usize = 16;
-const ARRAY_REPEAT_VALUE: Service = Service::new();
-static mut SERVICE : [Service; MAX_SERVICE] = [ARRAY_REPEAT_VALUE; MAX_SERVICE];
+pub struct Service {
+    servant : *mut Process,     // Who is accepting?
+    waiting : VecDeque<Request> // Pending requests
+}
 
-impl CPU {
-    pub unsafe fn service_receive(&mut self, port : usize) {
-        let process = &mut *self.get_process();
-        let service = &mut SERVICE[port];
-        assert!(service.servant.is_null(), "Service already accepted");
-        while service.waiting.is_empty() {
-            service.servant = process;
-            (*process).sleep_as(ProcessStatus::SERVING);
-            self.sys_yield();
-        }
-
-        service.servant = null_mut();
-        let request = (service.waiting).front_mut().expect("WTF no request!");
-        if request.forward(process) {
-            service.waiting.pop_front();
+impl Service {
+    pub const fn new() -> Self {
+        Service {
+            servant : core::ptr::null_mut(),
+            waiting : VecDeque::new(),
         }
     }
 
-    pub unsafe fn service_respond(&mut self, handle : ServiceHandle) {
-        if handle.is_async() { return; }
-        let process = handle_to_process(handle);
-        assert!(!process.is_null(), "Invalid handle");
-        (*process).wake_up_from(ProcessStatus::SERVICE);
+    unsafe fn set_servant(&mut self, process: *mut Process) {
+        assert!(self.servant.is_null(), "Service already accepted");
+        self.servant = process;
     }
 
-    pub unsafe fn service_request_block(&mut self, args : [usize; 5]) {
-        let process = &mut *self.get_process();
-        let port    = args[4];
-        let service = &mut SERVICE[port];
-
-        process.sleep_as(ProcessStatus::SERVICE);
-        service.waiting.push_back(Request::new_block(&args[ 0..3 ], process));
-
-        if !service.servant.is_null() {
-            let process = &mut *service.servant;
-            process.wake_up_from(ProcessStatus::SERVING);
-            return self.switch_to(process);
-        } else {
-            return self.sys_yield();
-        }
+    unsafe fn reset_servant(&mut self, process: *mut Process) {
+        assert!(self.servant == process, "Invalid servant");
+        self.servant = core::ptr::null_mut();
     }
 
-    pub unsafe fn service_request_async(&mut self, args : [usize; 5]) {
-        let process = &mut *self.get_process();
-        let port    = args[4];
-        let service = &mut SERVICE[port];
+    pub unsafe fn try_wake_up_servant(&self) -> Option<* mut Process> {
+        if self.servant.is_null() { return None; }
+        (*self.servant).wake_up_from(ProcessStatus::SERVING);
+        return Some(self.servant);
+    }
 
-        service.waiting.push_back(Request::new_async(&args[ 0..3 ], process));
+    pub unsafe fn wait_for_request(&mut self, cpu : &mut CPU) -> &mut Request {
+        let process = cpu.get_process();
+        self.set_servant(process);
 
-        if !service.servant.is_null() {
-            let process = &mut *service.servant;
-            process.wake_up_from(ProcessStatus::SERVING);
+        while self.waiting.is_empty() {
+            cpu.sleep_as(ProcessStatus::SERVING);
+            cpu.sys_yield();
         }
+
+        self.reset_servant(process);
+
+        return self.waiting.front_mut().expect("WTF no request!");
+    }
+
+    pub unsafe fn pop_front(&mut self) {
+        self.waiting.pop_front();
+    }
+
+    pub unsafe fn push_back(&mut self, request: Request) {
+        self.waiting.push_back(request);
     }
 }

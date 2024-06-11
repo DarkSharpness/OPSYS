@@ -47,14 +47,21 @@ impl CPU {
     }
 
     pub unsafe fn sys_read(&mut self){
-        let process    = self.get_process();
-        let trap_frame = &mut *(*process).trap_frame;
-        trap_frame.a0 = self.console_read(trap_frame.a1, trap_frame.a2);
+        let process     = self.get_process();
+        let trap_frame  = &mut *(*process).trap_frame;
+        trap_frame.a0   = self.console_read(trap_frame.a1, trap_frame.a2);
     }
 
     pub unsafe fn sys_write(&mut self){
-        let process    = self.get_process();
-        let trap_frame = &mut *(*process).trap_frame;
-        trap_frame.a0 = self.console_write(trap_frame.a1, trap_frame.a2);
+        let process     = self.get_process();
+        let trap_frame  = &mut *(*process).trap_frame;
+        trap_frame.a0   = self.console_write(trap_frame.a1, trap_frame.a2);
+    }
+
+    pub unsafe fn sys_exit(&mut self){
+        let process     = self.get_process();
+        let trap_frame  = &mut *(*process).trap_frame;
+
+        todo!("Call the user exit {}", trap_frame.a0);
     }
 }
