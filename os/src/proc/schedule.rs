@@ -1,5 +1,5 @@
 use core::ptr::null_mut;
-use crate::{alloc::{PTEFlag, PAGE_TABLE}, cpu::{current_cpu, CPU}, trap::{get_trampoline, Interrupt, TRAMPOLINE}};
+use crate::{alloc::KERNEL_SATP, cpu::{current_cpu, CPU}, trap::Interrupt};
 use super::{PidType, Process, ProcessStatus};
 extern crate alloc;
 use alloc::collections::VecDeque;
@@ -9,25 +9,6 @@ pub struct ProcessManager {
     running_process : * mut Process,
     batch_iter      : usize,
     batch_size      : usize,
-}
-
-pub unsafe fn run_process() {
-    logging!("Starting process scheduler...");
-    let cpu = current_cpu();
-    loop {
-        Interrupt::disable();
-
-        let prev_task   = cpu.get_process();
-        assert!(prev_task.is_null(), "Task should be null");
-        let next_task   = cpu.next_process();
-        // Try to listen to the interrupt
-        if !next_task.is_null() {
-            cpu.scheduler_yield(next_task);
-            cpu.complete_process(next_task);
-        }
-
-        Interrupt::enable(); 
-    }
 }
 
 impl CPU {
@@ -75,11 +56,11 @@ impl ProcessManager {
     /// We need a deque whose iterator will not be invalidated.
     /// To handle the problem here, we just reserve enough space.
     /// Plan to rewrite in the future.
-    pub(super) fn init(&mut self) {
+    fn init(&mut self) {
         self.process_queue.reserve(64);
     }
 
-    pub(super) unsafe fn add_process(&mut self, process : Process) -> &mut Process {
+    pub unsafe fn add_process(&mut self, process : Process) -> &mut Process {
         self.process_queue.push_back(process);
         let back = self.process_queue.back_mut().unwrap();
         PidType::register(back);
@@ -88,12 +69,30 @@ impl ProcessManager {
 }
 
 pub unsafe fn init_process() {
-    /* Add the init process to the manager. */
-    let trampoline = get_trampoline();
-    PAGE_TABLE.smap(TRAMPOLINE, trampoline, PTEFlag::RX);
+    // Add trampoline to the page table
+    KERNEL_SATP.map_trampoline();
  
     let manager = current_cpu().get_manager();
  
     manager.init();
     manager.add_process(Process::new_test(0));
+}
+
+pub unsafe fn run_process() {
+    logging!("Starting process scheduler...");
+    let cpu = current_cpu();
+    loop {
+        Interrupt::disable();
+
+        let prev_task   = cpu.get_process();
+        assert!(prev_task.is_null(), "Task should be null");
+        let next_task   = cpu.next_process();
+        // Try to listen to the interrupt
+        if !next_task.is_null() {
+            cpu.scheduler_yield(next_task);
+            cpu.complete_process(next_task);
+        }
+
+        Interrupt::enable(); 
+    }
 }

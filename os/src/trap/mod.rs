@@ -6,11 +6,11 @@ pub use user::*;
 pub use frame::TrapFrame;
 
 use riscv::register::*;
-use crate::alloc::{PageAddress, PAGE_SIZE};
+use crate::alloc::{PTEFlag, PageAddress, PAGE_SIZE};
 
 core::arch::global_asm!(include_str!("trap.asm"));
 
-pub const TRAMPOLINE : usize = (!PAGE_SIZE + 1) as usize;
+const TRAMPOLINE : usize = (0 as usize).wrapping_sub(PAGE_SIZE);
 pub const TRAP_FRAME : usize = TRAMPOLINE - (PAGE_SIZE as usize);
 
 extern "C" {
@@ -33,8 +33,14 @@ unsafe fn set_user_trap() {
 }
 
 /** Return the trampoline physical address */
-pub unsafe fn get_trampoline() -> PageAddress {
+unsafe fn get_trampoline_physical() -> PageAddress {
     return PageAddress::new_usize(user_handle as _)
+}
+
+impl PageAddress {
+    pub unsafe fn map_trampoline(self) {
+        self.smap(TRAMPOLINE, get_trampoline_physical(), PTEFlag::RX | PTEFlag::OTHER);
+    }
 }
 
 pub struct Interrupt;

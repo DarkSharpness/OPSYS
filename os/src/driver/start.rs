@@ -82,6 +82,6 @@ unsafe fn init_page() {
     pmpcfg0::write(0xf);
     // Start using page table
     asm!("sfence.vma");
-    satp::set(satp::Mode::Sv39, 0, alloc::PAGE_TABLE.bits() as _);
+    satp::set(satp::Mode::Sv39, 0, alloc::KERNEL_SATP.bits());
     asm!("sfence.vma");
 }

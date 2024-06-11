@@ -25,4 +25,4 @@ pub const BUDDY_START   : *mut u8   = BASE_ADDRESS as _;
 // Page table address.
 pub const PAGE_TABLE_ADDR   : usize     = BASE_ADDRESS + PAGE_SIZE * 2;
 // The page table physical address.
-pub const PAGE_TABLE    : PageAddress   = PageAddress::new_usize(PAGE_TABLE_ADDR as _);
+pub const KERNEL_SATP   : PageAddress   = PageAddress::new_usize(PAGE_TABLE_ADDR as _);

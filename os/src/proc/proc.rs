@@ -5,7 +5,7 @@ use riscv::register::satp;
 use crate::cpu::*;
 use crate::driver::get_tid;
 use crate::alloc::{PTEFlag, PageAddress, PAGE_SIZE};
-use crate::trap::{get_trampoline, user_trap, TrapFrame, TRAMPOLINE, TRAP_FRAME};
+use crate::trap::{user_trap, TrapFrame, TRAP_FRAME};
 use super::{Context, PidType};
 
 const USER_STACK : usize = 1 << 38;
@@ -38,8 +38,7 @@ impl Process {
         message!("Process created with root {:#x}", root.address() as usize);
 
         // Map the trampoline page.
-        let trampoline = get_trampoline();
-        root.smap(TRAMPOLINE, trampoline, PTEFlag::RX);
+        root.map_trampoline();
 
         // Map the trap frame page.
         let trap_frame = PageAddress::new_rand_page();
@@ -59,13 +58,12 @@ impl Process {
         trap_frame.kernel_satp   = satp::read().bits();
         trap_frame.kernel_trap   = user_trap as _;
 
-        let context = Context::new_with(core_stack);
-
         // Complete the resource initialization.
         return Process {
-            status      : ProcessStatus::RUNNABLE,
-            pid         : PidType::allocate(),
-            context, root, trap_frame
+            status  : ProcessStatus::RUNNABLE,
+            pid     : PidType::allocate(),
+            context : Context::new_with(core_stack),
+            root, trap_frame
         };
     }
 

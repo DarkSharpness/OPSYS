@@ -39,11 +39,12 @@ bitflags! {
         const RX = V.0 | R.0 | X.0; // Read-execute
         const RW = V.0 | R.0 | W.0; // Read-write
 
-
         const NEXT      = 1;        // Next level of page table
         const INVALID   = 0;        // Invalid page table entry
+
+        const OTHER     = 0b00 << 8; // Default, no permission.
         const OWNED     = 0b01 << 8; // Exclusive mapping
-        const SHARED    = 0b10 << 8; // Shared mapping 
+        const SHARED    = 0b10 << 8; // Shared mapping, need ref count.
     }
 }
 
@@ -57,7 +58,7 @@ pub unsafe fn init_page_table() {
     /* Page table should be located at 0x80002000.  */
     assert!(get_pagetable() == PAGE_TABLE_ADDR, "Page table at wrong address!");
 
-    let mut root = PAGE_TABLE;
+    let mut root = KERNEL_SATP;
 
     // Reset as invalid.
     for i in 3..512 {

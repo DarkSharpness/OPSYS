@@ -4,7 +4,7 @@ mod buddy;
 mod constant;
 mod page_impl;
 
-pub use constant::PAGE_TABLE;
+pub use constant::KERNEL_SATP;
 pub use constant::PAGE_SIZE;
 pub use page::PageAddress;
 pub use page::PTEFlag;
