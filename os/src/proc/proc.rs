@@ -23,40 +23,35 @@ pub struct Process {
     status      : ProcessStatus,    // process status
     root        : PageAddress,      // root of the page table
     trap_frame  : * mut TrapFrame,  // trap frame
-    pub context     : Context,          // current context
+    context     : Context,          // current context
+}
+
+impl PageAddress {
+    unsafe fn map_trap_frame(self) -> &'static mut TrapFrame {
+        let trap_frame = PageAddress::new_rand_page();
+        self.smap(TRAP_FRAME, trap_frame, PTEFlag::RW | PTEFlag::OWNED);
+        return &mut *(trap_frame.address() as *mut TrapFrame);
+    }
+    unsafe fn new_kernel_stack() -> usize {
+        let stack = Self::new_rand_page();
+        return stack.address() as usize + PAGE_SIZE;
+    }
 }
 
 impl Process {
+    /** Initialize those necessary resources first. */
     pub(super) unsafe fn init() -> Process {
         let root = PageAddress::new_pagetable();
-
-        // Map at least one page for user's stack
-        let stack_page = PageAddress::new_rand_page();
-        let user_stack = USER_STACK - (PAGE_SIZE as usize);
-        root.umap(user_stack, stack_page, PTEFlag::RW | PTEFlag::OWNED);
-
         message!("Process created with root {:#x}", root.address() as usize);
 
-        // Map the trampoline page.
         root.map_trampoline();
+        let trap_frame = root.map_trap_frame();
+        let core_stack = PageAddress::new_kernel_stack();
 
-        // Map the trap frame page.
-        let trap_frame = PageAddress::new_rand_page();
-        root.smap(TRAP_FRAME, trap_frame, PTEFlag::RW | PTEFlag::OWNED);
-
-        // Map the kernel stack page.
-        // Note that stack pointer should be set to the top of the page.
-        let core_stack = PageAddress::new_rand_page().address() as usize + PAGE_SIZE;
-
-        let trap_frame = trap_frame.address() as *mut TrapFrame;
-        let trap_frame = &mut *trap_frame;
-
-        trap_frame.pc = 0;
-        trap_frame.sp = USER_STACK;
         trap_frame.thread_number = get_tid();
-        trap_frame.kernel_stack  = core_stack;
-        trap_frame.kernel_satp   = satp::read().bits();
-        trap_frame.kernel_trap   = user_trap as _;
+        trap_frame.kernel_stack = core_stack;
+        trap_frame.kernel_satp  = satp::read().bits();
+        trap_frame.kernel_trap  = user_trap as _;
 
         // Complete the resource initialization.
         return Process {

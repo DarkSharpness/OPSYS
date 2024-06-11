@@ -1,10 +1,25 @@
 use core::ptr::addr_of;
 
+use crate::alloc::{PTEFlag, PageAddress, PAGE_SIZE};
+
 use super::Process;
+
+const USER_STACK : usize = 1 << 38;
+
+impl PageAddress {
+    unsafe fn map_stack(self, cnt : usize) {
+        for i in 0..cnt {
+            let stack_page = PageAddress::new_rand_page();
+            let user_stack = USER_STACK - (i + 1) * PAGE_SIZE as usize;
+            self.umap(user_stack, stack_page, PTEFlag::RW | PTEFlag::OWNED);
+        }
+    }
+}
 
 impl Process {
     pub(super) unsafe fn new_test(which : usize) -> Process {
         let process = Process::init();
+
         extern "C" { static _num_app : usize; }
 
         let num : usize = _num_app;
@@ -31,7 +46,12 @@ impl Process {
                 process.get_satp().load_from_elf(ph, &elf);
             }
         }
-        process.get_trap_frame().pc = elf.header.pt2.entry_point() as usize;
+
+        let trap_frame = process.get_trap_frame();
+        trap_frame.pc = elf.header.pt2.entry_point() as usize;
+        trap_frame.sp = USER_STACK;
+        process.get_satp().map_stack(1);
+
         return process;
     }
 
