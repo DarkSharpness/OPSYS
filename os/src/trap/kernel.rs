@@ -1,6 +1,6 @@
 use core::arch::asm;
 use riscv::register::*;
-use crate::driver::plic;
+use crate::{driver::plic, proc::current_cpu};
 
 #[no_mangle]
 unsafe fn core_trap() {
@@ -11,11 +11,10 @@ unsafe fn core_trap() {
     match scause::read().cause() {
         Trap::Interrupt(interrupt) => match interrupt {
             Interrupt::SupervisorSoft => {
-                // Simply acknowledge the software interrupt
+                current_cpu().reset_timer_time();
                 asm!("csrci sip, 2");
             },
             Interrupt::SupervisorExternal => {
-                // Acknowledge the external interrupt
                 plic::resolve();
                 asm!("csrc sip, {}", in(reg) 1 << 9);
             }
