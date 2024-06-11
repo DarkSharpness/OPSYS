@@ -1,4 +1,4 @@
-use crate::proc::{pid_to_process, PidType, Process};
+use crate::proc::{PidType, Process};
 
 #[derive(Clone)]
 pub struct ServiceHandle(usize);
@@ -16,15 +16,14 @@ impl ServiceHandle {
     }
 }
 
-/// Now, handle = pid + MAGIC
-const MAGIC : usize = 1919;
+use sys::syscall::{pid_to_handle,handle_to_pid};
 
 unsafe fn process_to_handle(process : *mut Process) -> ServiceHandle {
-    let pid = &(*process).pid;
-    return ServiceHandle::new(pid.bits() + MAGIC);
+    let pid = &(*process).get_pid();
+    return ServiceHandle::new(pid_to_handle(pid.raw_bits()));
 }
 
 unsafe fn handle_to_process(handle : ServiceHandle) -> *mut Process {
-    let pid = PidType::new(handle.bits() - MAGIC);
-    return pid_to_process(pid);
+    let pid = PidType::new(handle_to_pid(handle.bits()));
+    return pid.to_process();
 }

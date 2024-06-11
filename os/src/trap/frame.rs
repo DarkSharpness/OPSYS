@@ -41,3 +41,13 @@ pub struct TrapFrame {
     pub kernel_trap     : usize,  // kernel trap handler
     pub kernel_stack    : usize,  // kernel stack pointer
 }
+
+impl TrapFrame {
+    pub unsafe fn fork_copy_to(&self, target: *mut TrapFrame) {
+        // Copy on registers, except for thread_number
+        let from = self as *const TrapFrame;
+        let addr = target as *mut usize;
+        // Copy 32 registers
+        addr.copy_from(from as *const usize, 32);
+    }
+}

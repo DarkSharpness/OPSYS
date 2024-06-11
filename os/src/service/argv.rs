@@ -20,7 +20,7 @@ impl Argument {
                 tmp.resize(args[1], 0);
 
                 let mut dst = tmp.into_boxed_slice();
-                process.root.user_to_core(&mut dst, args[0], args[1]);
+                process.get_satp().user_to_core(&mut dst, args[0], args[1]);
                 Self::Buffered(dst)
             },
             _ => panic!("Invalid argument"),

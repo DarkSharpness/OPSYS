@@ -11,7 +11,7 @@ impl CPU {
     pub unsafe fn syscall(&mut self) {
         use sys::syscall::*;
         let process = self.get_process();
-        let trap_frame = &mut *(*process).trap_frame;
+        let trap_frame = (*process).get_trap_frame();
 
         trap_frame.pc += 4; // Skip the ecall instruction
 
@@ -24,7 +24,9 @@ impl CPU {
             SYS_RESPOND     => self.sys_respond(),
             SYS_READ        => self.sys_read(),
             SYS_WRITE       => self.sys_write(),
+            SYS_FORK        => self.sys_fork(),
             SYS_EXIT        => self.sys_exit(),
+            SYS_WAIT        => self.sys_wait(),
             _ => unknown_syscall(index, trap_frame),
         }
     }

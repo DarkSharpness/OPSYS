@@ -64,9 +64,9 @@ pub unsafe fn user_trap_return() {
     set_user_trap();
 
     let process = &mut (*current_cpu().get_process());
-    sepc::write((*process.trap_frame).pc as _);
+    sepc::write(process.get_trap_frame().pc as _);
 
-    return return_to_user(process.root);
+    return return_to_user(process.get_satp());
 }
 
 unsafe fn return_to_user(base : PageAddress) {

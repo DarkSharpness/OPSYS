@@ -70,7 +70,7 @@ impl Console {
             cpu.process_yield();
         }
         let len = core::cmp::min(len, self.stdin.len());
-        process.root.core_to_user(dst, len, &mut self.stdin);
+        process.get_satp().core_to_user(dst, len, &mut self.stdin);
         self.stdin.drain(..len);
         return len;
     }

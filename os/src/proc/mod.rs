@@ -1,56 +1,33 @@
+mod cpu;
+mod pid;
 mod proc;
+mod test;
+mod context;
 mod schedule;
 
-pub use proc::init_process;
-pub use schedule::run_process;
-pub use proc::pid_to_process;
+pub use cpu::*;
+pub use proc::{Process, ProcessStatus};
+pub use pid::PidType;
+pub use schedule::{run_process, init_process};
+
+use crate::cpu::CPU;
+use context::Context;
+use schedule::ProcessManager;
 
 extern crate alloc;
-use alloc::collections::VecDeque;
-use crate::{alloc::PageAddress, cpu::CPU, trap::TrapFrame};
 
 extern "C" { fn switch_context(old : *mut Context, new : *mut Context); }
 
-#[repr(C)]
-pub struct Context { stack_bottom : usize, }
-
-pub struct PidType(usize);
-
-#[derive(Debug, PartialEq)]
-pub enum ProcessStatus {
-    RUNNING,    // running on CPU
-    SERVING,    // serving some service
-    SERVICE,    // waiting for some service
-    RUNNABLE,   // ready to run, but not running
-    SLEEPING,   // blocked by some event
-}
-
-pub struct Process {
-    pub pid         : PidType,          // process id
-    pub status      : ProcessStatus,    // process status
-    pub root        : PageAddress,      // root of the page table
-    pub trap_frame  : * mut TrapFrame,  // trap frame
-    pub name        : &'static str,     // process name
-    pub context     : Context,          // current context
-}
-
-pub struct ProcessManager {
-    pub process_queue   : VecDeque<Process>,
-    pub running_process : * mut Process,
-    pub batch_iter      : usize,
-    pub batch_size      : usize,
-}
-
 /** Run the process. */
 unsafe fn run(process : *mut Process) {
-    assert_eq!((*process).status, ProcessStatus::RUNNABLE);
-    (*process).status = ProcessStatus::RUNNING;
+    assert_eq!((*process).get_status(), ProcessStatus::RUNNABLE);
+    (*process).set_status(ProcessStatus::RUNNING);
 }
 
 /** Run the process. */
 unsafe fn off(process : *mut Process) {
-    if (*process).status == ProcessStatus::RUNNING {
-        (*process).status = ProcessStatus::RUNNABLE;
+    if (*process).has_status(ProcessStatus::RUNNING) {
+        (*process).set_status(ProcessStatus::RUNNABLE);
     }
 }
 
@@ -58,8 +35,7 @@ impl CPU {
     /** Switch from current process to new process. Timer is untouched. */
     pub unsafe fn switch_to(&mut self, new : *mut Process) {
         let old = self.get_process();
-        off(old);
-        run(new);
+        off(old); run(new);
         switch_context((*old).get_context(), (*new).get_context());
     }
 
@@ -73,13 +49,8 @@ impl CPU {
 
     /** Switch from scheduler to the new process. Timer is untouched. */
     pub unsafe fn scheduler_yield(&mut self, new : *mut Process) {
-        assert_eq!((*new).status, ProcessStatus::RUNNABLE);
+        assert_eq!((*new).get_status(), ProcessStatus::RUNNABLE);
         run(new);
         switch_context(self.get_context(), (*new).get_context());
     }
-}
-
-impl PidType {
-    pub fn new(pid : usize) -> Self { Self(pid) }
-    pub fn bits(&self) -> usize { self.0 }
 }

@@ -1,7 +1,15 @@
 use core::ptr::null_mut;
+use crate::{alloc::{PTEFlag, PAGE_TABLE}, cpu::{current_cpu, CPU}, trap::{get_trampoline, Interrupt, TRAMPOLINE}};
+use super::{PidType, Process, ProcessStatus};
+extern crate alloc;
+use alloc::collections::VecDeque;
 
-use crate::{cpu::{current_cpu, CPU}, trap::Interrupt};
-use super::{Process, ProcessStatus};
+pub struct ProcessManager {
+    process_queue   : VecDeque<Process>,
+    running_process : * mut Process,
+    batch_iter      : usize,
+    batch_size      : usize,
+}
 
 pub unsafe fn run_process() {
     logging!("Starting process scheduler...");
@@ -36,7 +44,7 @@ impl CPU {
         }
 
         let process = &mut manager.process_queue[manager.batch_iter];
-        if (*process).status != ProcessStatus::RUNNABLE { return null_mut(); }
+        if !process.has_status(ProcessStatus::RUNNABLE) { return null_mut(); }
 
         manager.running_process = process;
         manager.batch_iter += 1;
@@ -49,4 +57,43 @@ impl CPU {
         assert!(manager.running_process == process, "Invalid process to complete");
         manager.running_process = core::ptr::null_mut();
     }
+}
+
+impl ProcessManager {
+    pub const fn new() -> Self {
+        return Self {
+            process_queue   : VecDeque::new(),
+            running_process : null_mut(),
+            batch_iter      : 0,
+            batch_size      : 0,
+        };
+    }
+
+    /// TODO:
+    /// Currently, our implementation is problematic.
+    /// When the queue is full, the old process will be replaced.
+    /// We need a deque whose iterator will not be invalidated.
+    /// To handle the problem here, we just reserve enough space.
+    /// Plan to rewrite in the future.
+    pub(super) fn init(&mut self) {
+        self.process_queue.reserve(64);
+    }
+
+    pub(super) unsafe fn add_process(&mut self, process : Process) -> &mut Process {
+        self.process_queue.push_back(process);
+        let back = self.process_queue.back_mut().unwrap();
+        PidType::register(back);
+        return back;
+    }
+}
+
+pub unsafe fn init_process() {
+    /* Add the init process to the manager. */
+    let trampoline = get_trampoline();
+    PAGE_TABLE.smap(TRAMPOLINE, trampoline, PTEFlag::RX);
+ 
+    let manager = current_cpu().get_manager();
+ 
+    manager.init();
+    manager.add_process(Process::new_test(0));
 }

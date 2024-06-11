@@ -20,6 +20,7 @@ impl CPU {
         let request = service.wait_for_request(self);
         if request.forward(&mut *self.get_process()) {
             service.pop_front();
+        } else { // Set as failed
         }
     }
 
@@ -36,7 +37,7 @@ impl CPU {
         let service = &mut SERVICE[port];
 
         process.sleep_as(ProcessStatus::SERVICE);
-        service.push_back(Request::new_block(&args[ 0..3 ], process));
+        service.push_back(Request::new_block(&args, process));
 
         match service.try_wake_up_servant() {
             Some(process)   => self.switch_to(process),
@@ -49,7 +50,7 @@ impl CPU {
         let port    = args[4];
         let service = &mut SERVICE[port];
 
-        service.push_back(Request::new_async(&args[ 0..3 ], process));
+        service.push_back(Request::new_async(&args, process));
         service.try_wake_up_servant();
     }
 }

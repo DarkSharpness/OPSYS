@@ -30,7 +30,7 @@ impl Request {
      * Return whether the request can be forwarded.
     */
     pub unsafe fn forward(&mut self, target : &mut Process) -> bool {
-        let trap_frame = &mut *target.trap_frame;
+        let trap_frame = target.get_trap_frame();
         match &mut self.args {
             Argument::Register(a0, a1) => {
                 trap_frame.a0 = *a0;
@@ -52,7 +52,7 @@ impl Request {
                     return false;
                 }
 
-                target.root.core_to_user(trap_frame.a0, buffer.len() , buffer);
+                target.get_satp().core_to_user(trap_frame.a0, buffer.len() , buffer);
             },
             Argument::Upointer(_, _) => {
                 // This is a zero-copy optimization.

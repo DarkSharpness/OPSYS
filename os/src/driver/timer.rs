@@ -5,7 +5,7 @@ const BASE     :       usize  = 0x2000000;
 const MTIME    : * mut usize  = (BASE + 0xBFF8) as _;
 const MTIMECMP : * mut usize  = (BASE + 0x4000) as _;
 
-use crate::cpu::{current_cpu, CPU};
+use crate::cpu::*;
 
 use super::get_tid;
 

@@ -137,9 +137,8 @@ impl CPU {
         let buffer = &mut WRITE_BUFFER.0;
         buffer.reserve(len);
         let process = &mut (*self.get_process());
-        process.root.user_to_core(buffer, src, len);
+        process.get_satp().user_to_core(buffer, src, len);
         uart_try_send();
         return len;
     }
 }
-
