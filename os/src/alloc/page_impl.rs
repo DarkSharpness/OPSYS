@@ -90,6 +90,10 @@ impl PageAddress {
         return validate_pointer(self, dst, page_end - page_beg, flag);
     }
 
+    pub unsafe fn duplicate(self, root : PageAddress) {
+        return duplicate_impl(self, root);
+    }
+
     /** Return the iterator at given address. */
     unsafe fn get_iterator(mut self, src : usize) -> Option<PageIterator> {
         let page = src >> 12;
@@ -254,6 +258,33 @@ unsafe fn validate_pointer(
         if cnt == 0 { return true; }
         cnt -= 1;
         if !iter.inc_check() { return false; }
+    }
+}
+
+unsafe fn duplicate_impl(dst : PageAddress, src : PageAddress) {
+    for i in 0..512 {
+        let (addr, flag) = src[i].get_entry();
+        if flag == PTEFlag::INVALID { continue; }
+        assert!(flag == PTEFlag::NEXT, "Invalid page table mapping!");
+        for j in 0..512 {
+            let (addr, flag) = addr[j].get_entry();
+            if flag == PTEFlag::INVALID { continue; }
+            assert!(flag == PTEFlag::NEXT, "Invalid page table mapping!");
+            for k in 0..512 {
+                let (addr, flag) = addr[k].get_entry();
+                if flag == PTEFlag::INVALID { continue; }
+                if flag.contains(PTEFlag::OTHER) {
+                    /* Do nothing */
+                } else if flag.contains(PTEFlag::OWNED) {
+                    let temp = PageAddress::new_rand_page();
+                    dst.umap((i << 30) | (j << 21) | (k << 12), temp, flag);
+                    temp.address().copy_from(addr.address(), PAGE_SIZE);
+                } else {
+                    // If shared, add up the reference count.
+                    todo!("Implement duplicate_impl for other flags.");
+                }
+            }
+        }
     }
 }
 

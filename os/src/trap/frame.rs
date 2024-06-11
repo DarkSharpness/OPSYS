@@ -43,11 +43,10 @@ pub struct TrapFrame {
 }
 
 impl TrapFrame {
-    pub unsafe fn fork_copy_to(&self, target: *mut TrapFrame) {
-        // Copy on registers, except for thread_number
+    // Copy only 32 registers
+    pub unsafe fn duplicate(&self, target: *mut TrapFrame) {
         let from = self as *const TrapFrame;
         let addr = target as *mut usize;
-        // Copy 32 registers
         addr.copy_from(from as *const usize, 32);
     }
 }

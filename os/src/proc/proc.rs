@@ -104,11 +104,16 @@ impl Process {
     }
 
     pub unsafe fn fork(&self) -> Process {
-        let process = Process::init();
-        (*self.trap_frame).fork_copy_to(process.trap_frame);
-        (*self.trap_frame).a0 = process.pid.raw_bits();
-        process.get_trap_frame().a0 = 0;
-        return process;
+        let child       = Process::init();
+        let trap_frame  = self.get_trap_frame();
+
+        trap_frame.duplicate(child.trap_frame);
+
+        trap_frame.a0 = child.get_pid().raw_bits();
+        child.get_trap_frame().a0 = 0;
+
+        child.get_satp().duplicate(self.root);
+        return child;
     }
 }
 
