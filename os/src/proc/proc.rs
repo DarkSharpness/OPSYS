@@ -29,7 +29,7 @@ pub struct Process {
 impl PageAddress {
     unsafe fn map_trap_frame(self) -> &'static mut TrapFrame {
         let trap_frame = PageAddress::new_rand_page();
-        self.smap(TRAP_FRAME, trap_frame, PTEFlag::RW, PTEFlag::OTHER);
+        self.smap(TRAP_FRAME, trap_frame, PTEFlag::RW);
         return &mut *(trap_frame.address() as *mut TrapFrame);
     }
     unsafe fn new_kernel_stack() -> usize {
@@ -40,7 +40,7 @@ impl PageAddress {
 
 impl Process {
     /** Initialize those necessary resources first. */
-    pub(super) unsafe fn init() -> Process {
+    pub unsafe fn init() -> Process {
         let root = PageAddress::new_pagetable();
         message!("Process created with root {:#x}", root.address() as usize);
 
@@ -102,28 +102,11 @@ impl Process {
         assert_eq!(self.status, status, "Invalid to wake up!");
         self.status = ProcessStatus::RUNNABLE;
     }
-
-    pub unsafe fn fork(&self) -> Process {
-        let child       = Process::init();
-        let trap_frame  = self.get_trap_frame();
-
-        child.get_trap_frame().copy_from(trap_frame);
-        trap_frame.a0 = child.get_pid().raw_bits();
-        child.get_trap_frame().a0 = 0;
-
-        child.get_satp().copy_from(self.root);
-        return child;
-    }
 }
 
 impl CPU {
     pub unsafe fn sleep_as(&mut self, status : ProcessStatus) {
         let process = self.get_process();
         return (*process).sleep_as(status);
-    }
-
-    pub unsafe fn fork(&mut self) -> &mut Process {
-        let process = &mut *self.get_process();
-        return self.manager.add_process(process.fork());
     }
 }
