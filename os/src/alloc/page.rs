@@ -163,6 +163,9 @@ impl PageTableEntry {
     pub fn set_flag(&mut self, flag : PTEFlag) {
         self.0 = (self.0 & !Self::MASK) | flag.bits();
     }
+    pub fn add_flag(&mut self, flag : PTEFlag) {
+        self.0 |= flag.bits();
+    }
 }
 
 impl PTEFlag {
@@ -198,7 +201,10 @@ impl PageAddress {
     pub fn new_rand_page() -> Self { unsafe { allocate_page() } }
     /** Return a page with given physical address entry. */
     pub const fn new_usize(num : usize) -> Self { PageAddress(num >> 12) }
-
+    /** Free this page. */
+    pub unsafe fn free(self) {
+        BuddyAllocator::deallocate_page(self.address());
+    }
     fn new_ptr(num : *mut u8) -> Self {
         PageAddress((num as usize) >> 12)
     }
@@ -214,11 +220,17 @@ impl PageAddress {
     pub(super) unsafe fn get_entry(&self, x : usize) -> &mut PageTableEntry {
         &mut *((self.0 << 12) as *mut PageTableEntry).wrapping_add(x)
     }
-
     /** Return the index of a physical page. */
     pub fn bits(self) -> usize { self.0 }
     /** Return the physical address. */
     pub fn address(self) -> *mut u8 { (self.0 << 12) as *mut u8 }
+    /** Copy at given offset from some slice */
+    pub fn copy_at(self, offset : usize, slice : &[u8]) {
+        let dst = self.address().wrapping_add(offset);
+        let src = slice.as_ptr();
+        let len = slice.len();
+        unsafe { dst.copy_from_nonoverlapping(src, len); }
+    }
 }
 
 /** Return the relative page number to the front of kernel (0x80000000).  */

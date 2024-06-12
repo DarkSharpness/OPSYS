@@ -1,5 +1,6 @@
 mod cpu;
 mod pid;
+mod elf;
 mod proc;
 mod test;
 mod context;

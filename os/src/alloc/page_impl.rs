@@ -1,5 +1,4 @@
 extern crate alloc;
-use xmas_elf::{program::ProgramHeader, ElfFile};
 use crate::{alloc::page::{A, D, G, R, V, W, X}, utility::*};
 
 struct PageIterator {
@@ -25,14 +24,19 @@ impl core::ops::IndexMut<usize> for PageAddress {
 
 impl PageAddress {
     /** Add a supervisor mapping. */
-    #[inline(always)]
     pub unsafe fn smap(self, virt : usize, phys : PageAddress, flag : PTEFlag) {
-        return vmmap(self, virt, phys, flag | PTEOwner::Kernel.to_flag());
+        return mmap(self, virt, phys, flag | PTEOwner::Kernel.to_flag());
     }
     /** Add a user mapping. */
-    #[inline(always)]
     pub unsafe fn umap(self, virt : usize, phys : PageAddress, flag : PTEFlag) {
-        return vmmap(self, virt, phys, flag | PTEOwner::Process.to_flag() | U);
+        return mmap(self, virt, phys, flag | PTEOwner::Process.to_flag() | U);
+    }
+    pub unsafe fn new_umap(self, virt : usize, flag : PTEFlag) -> PageAddress {
+        return new_mmap(self, virt, flag | PTEOwner::Process.to_flag() | U);
+    }
+    /** Try to add a mapping */
+    pub unsafe fn try_umap(self, virt : usize, flag : PTEFlag) -> PageAddress {
+        return try_mmap(self, virt, flag | PTEOwner::Process.to_flag() | U);
     }
 
     /**
@@ -53,34 +57,6 @@ impl PageAddress {
     pub unsafe fn user_to_core <T : CanPush> (self, dst : T, src : usize, len : usize) {
         if len == 0 { return; }
         return user_to_core_impl(self, dst, src, len);
-    }
-
-    /** Load a program header from an ELF file. */
-    pub unsafe fn load_from_elf(&mut self, ph : ProgramHeader, elf : &ElfFile) {
-        let start_va    = ph.virtual_addr() as usize;
-        let end_va      = (ph.virtual_addr() + ph.mem_size()) as usize;
-        if start_va == end_va { return; }
-
-        let mut permission = PTEFlag::EMPTY;
-        let ph_flags = ph.flags();
-        if ph_flags.is_read() { permission |= PTEFlag::RO; }
-        if ph_flags.is_write() { permission |= PTEFlag::WO; }
-        if ph_flags.is_execute() { permission |= PTEFlag::RX; }
-
-        let start_page  = start_va      / PAGE_SIZE;
-        let end_page    = (end_va - 1)  / PAGE_SIZE;
-        let offset      = ph.offset() as usize;
-        let data = &elf.input[offset..offset + ph.file_size() as usize];
-        if start_page == end_page {
-            let page = PageAddress::new_rand_page();
-            self.umap(start_va, page, permission);
-            let address = page.address().wrapping_add(start_va % PAGE_SIZE);
-            for i in 0..data.len() {
-                address.wrapping_add(i).write(data[i]);
-            }
-        } else {
-            todo!("Implement load_from_elf for multiple pages.");
-        }
     }
 
     /** Validate the input pointer. */
@@ -153,11 +129,9 @@ impl PageAddress {
     }
 }
 
-
-/**
- * Build up a mapping from a virtual address to a physical address at given page table.
- */
-unsafe fn vmmap(mut root : PageAddress, virt : usize, phys : PageAddress, __flag : PTEFlag) {
+#[inline(never)]
+unsafe fn mmap_until_root(
+    mut root : PageAddress, virt : usize, __flag : PTEFlag) -> *mut PageTableEntry {
     let virt =  virt >> 12;
     let ppn0 = (virt >> 18) & 0x1FF;
     let ppn1 = (virt >> 9 ) & 0x1FF;
@@ -185,10 +159,42 @@ unsafe fn vmmap(mut root : PageAddress, virt : usize, phys : PageAddress, __flag
         root = addr;
     }
 
-    let page = &mut root[ppn2];
+    return &mut root[ppn2];
+}
+
+#[inline(always)]
+unsafe fn mmap(root : PageAddress, virt : usize, phys : PageAddress, __flag : PTEFlag) {
+    let page = &mut *mmap_until_root(root, virt, __flag);
     let (_, flag) = page.get_entry();
     assert!(flag == PTEFlag::INVALID, "Mapping existed!");
     page.set_entry(phys, __flag);
+}
+
+#[inline(always)]
+unsafe fn new_mmap(root : PageAddress, virt : usize, __flag : PTEFlag) -> PageAddress {
+    let page = &mut *mmap_until_root(root, virt, __flag);
+    let (_, flag) = page.get_entry();
+    assert!(flag == PTEFlag::INVALID, "Mapping existed!");
+    let new = PageAddress::new_rand_page();
+    page.set_entry(new, __flag);
+    return new;
+}
+
+#[inline(always)]
+unsafe fn try_mmap(root : PageAddress, virt : usize, __flag : PTEFlag) -> PageAddress {
+    let page = &mut *mmap_until_root(root, virt, __flag);
+    let (old, flag) = page.get_entry();
+    if flag == PTEFlag::INVALID {
+        let phys = PageAddress::new_rand_page();
+        warning!("Adding mapping success!");
+        page.set_entry(phys, __flag);
+        return phys;
+    } else {
+        assert!(flag != PTEFlag::NEXT, "Invalid mapping!");
+        warning!("Adding mapping failed!");
+        page.add_flag(__flag);
+        return old;
+    }
 }
 
 unsafe fn copy_to_user_impl <T : CanCopy> (
