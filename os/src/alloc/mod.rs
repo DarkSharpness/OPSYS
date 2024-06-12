@@ -3,6 +3,8 @@ mod page;
 mod buddy;
 mod constant;
 mod page_impl;
+mod page_mmap;
+mod page_copy;
 
 pub use constant::KERNEL_SATP;
 pub use constant::PAGE_SIZE;
