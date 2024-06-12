@@ -71,7 +71,7 @@ impl TimeScartch {
 
 impl CPU {
     pub fn set_timer_interval(&mut self, time : Time) {
-        self.scratch.interval = usize::from(time);
+        self.get_timer().interval = usize::from(time);
     }
     pub fn reset_timer_time(&mut self) {
         return unsafe { set_timer_next(); }

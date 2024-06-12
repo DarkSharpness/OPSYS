@@ -4,9 +4,9 @@ use crate::layout::NCPU;
 use crate::proc::{Context, ProcessManager as Manager};
 
 pub struct IMPLEMENTEDCPU {
-    pub context : Context,
-    pub manager : Manager,
-    pub scratch : TimeScartch,
+    context : Context,
+    manager : Manager,
+    scratch : TimeScartch,
 }
 
 impl IMPLEMENTEDCPU {
