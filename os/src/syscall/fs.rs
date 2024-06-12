@@ -19,7 +19,7 @@ impl CPU {
         let buf = trap_frame.a1;
         let len = trap_frame.a2;
 
-        self.address_check(&[buf, len, 1], PTEFlag::RW);
+        self.address_check(&[buf, len, 1], PTEFlag::RO);
         trap_frame.a0 = self.console_write(buf, len);
     }
 }
