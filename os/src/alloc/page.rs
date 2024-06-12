@@ -11,7 +11,7 @@ pub struct PageTableEntry(usize);
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct PTEFlag(usize);
 
-pub enum PTEOwner {
+pub(super) enum PTEOwner {
     Kernel   = 0,   // Kernel owned, no need to destruct.
     Process  = 1,   // Process owned, destructed when process exits.
     Shared   = 2,   // Shared by multiple processes, need reference counting.
@@ -27,15 +27,15 @@ pub enum PTEOwner {
  * - 10: A PTE shared by multiple processes, need reference counting.
  * - 11: Not used yet.
  */
-pub(crate) const V : PTEFlag = PTEFlag(1 << 0);
-pub(crate) const R : PTEFlag = PTEFlag(1 << 1);
-pub(crate) const W : PTEFlag = PTEFlag(1 << 2);
-pub(crate) const X : PTEFlag = PTEFlag(1 << 3);
-pub(crate) const U : PTEFlag = PTEFlag(1 << 4);
-pub(crate) const G : PTEFlag = PTEFlag(1 << 5);
-pub(crate) const A : PTEFlag = PTEFlag(1 << 6);
-pub(crate) const D : PTEFlag = PTEFlag(1 << 7);
-pub(crate) const RSV : PTEFlag = PTEFlag(3 << 8);
+pub(super) const V : PTEFlag = PTEFlag(1 << 0);
+pub(super) const R : PTEFlag = PTEFlag(1 << 1);
+pub(super) const W : PTEFlag = PTEFlag(1 << 2);
+pub(super) const X : PTEFlag = PTEFlag(1 << 3);
+pub(super) const U : PTEFlag = PTEFlag(1 << 4);
+pub(super) const G : PTEFlag = PTEFlag(1 << 5);
+pub(super) const A : PTEFlag = PTEFlag(1 << 6);
+pub(super) const D : PTEFlag = PTEFlag(1 << 7);
+pub(super) const RSV : PTEFlag = PTEFlag(3 << 8);
 
 bitflags! {
     // Only make those useful flags public.
@@ -169,7 +169,7 @@ impl PageTableEntry {
 }
 
 impl PTEFlag {
-    pub const fn get_owner(&self) -> PTEOwner {
+    pub(super) const fn get_owner(&self) -> PTEOwner {
         match self.bits() >> 8 {
             0b00 => PTEOwner::Kernel,
             0b01 => PTEOwner::Process,
