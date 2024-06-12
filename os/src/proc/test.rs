@@ -42,7 +42,7 @@ impl Process {
         for i in 0..ph_count {
             let ph = elf.program_header(i).unwrap();
             if ph.get_type().unwrap() == xmas_elf::program::Type::Load {
-                message!("{}", ph);
+                // message!("{}", ph);
                 process.get_satp().load_from_elf(ph, &elf);
             }
         }

@@ -244,7 +244,7 @@ unsafe fn set_normal_identity(mut page : PageAddress, i : usize, j : usize, k : 
 unsafe fn allocate_zero() -> PageAddress {
     let addr = BuddyAllocator::allocate_page();
 
-    warning!("Zero-filled page allocated at {:p}", addr);
+    // warning!("Zero-filled page allocated at {:p}", addr);
 
     /* Reset the page to zero. */
     let temp = addr as *mut usize;
@@ -255,6 +255,6 @@ unsafe fn allocate_zero() -> PageAddress {
 
 unsafe fn allocate_page() -> PageAddress {
     let addr = BuddyAllocator::allocate_page();
-    warning!("Uninitialized page allocated at {:p}", addr);
+    // warning!("Uninitialized page allocated at {:p}", addr);
     return PageAddress::new_ptr(addr);
 }
