@@ -25,10 +25,10 @@ impl CPU {
         }
 
         let process = &mut manager.process_queue[manager.batch_iter];
-        if !process.has_status(ProcessStatus::RUNNABLE) { return null_mut(); }
-
-        manager.running_process = process;
         manager.batch_iter += 1;
+
+        if !process.has_status(ProcessStatus::RUNNABLE) { return null_mut(); }
+        manager.running_process = process;
 
         return process;
     }
