@@ -44,9 +44,9 @@ pub struct TrapFrame {
 
 impl TrapFrame {
     // Copy only 32 registers
-    pub unsafe fn duplicate(&self, target: *mut TrapFrame) {
-        let from = self as *const TrapFrame;
-        let addr = target as *mut usize;
-        addr.copy_from(from as *const usize, 32);
+    pub unsafe fn copy_from(&self, src: &TrapFrame) {
+        let dst = self as *const TrapFrame as *mut usize;
+        let src = src as *const TrapFrame as *const usize;
+        dst.copy_from(src, 32);
     }
 }

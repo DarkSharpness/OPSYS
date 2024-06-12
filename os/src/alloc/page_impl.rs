@@ -90,8 +90,8 @@ impl PageAddress {
         return validate_pointer(self, dst, page_end - page_beg, flag);
     }
 
-    pub unsafe fn duplicate(self, root : PageAddress) {
-        return duplicate_impl(self, root);
+    pub unsafe fn copy_from(self, root : PageAddress) {
+        return copy_impl(self, root);
     }
 
     /** Return the iterator at given address. */
@@ -261,7 +261,7 @@ unsafe fn validate_pointer(
     }
 }
 
-unsafe fn duplicate_impl(dst : PageAddress, src : PageAddress) {
+unsafe fn copy_impl(dst : PageAddress, src : PageAddress) {
     for i in 0..512 {
         let (addr, flag) = src[i].get_entry();
         if flag == PTEFlag::INVALID { continue; }

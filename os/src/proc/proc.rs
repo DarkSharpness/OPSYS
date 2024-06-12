@@ -107,12 +107,11 @@ impl Process {
         let child       = Process::init();
         let trap_frame  = self.get_trap_frame();
 
-        trap_frame.duplicate(child.trap_frame);
-
+        child.get_trap_frame().copy_from(trap_frame);
         trap_frame.a0 = child.get_pid().raw_bits();
         child.get_trap_frame().a0 = 0;
 
-        child.get_satp().duplicate(self.root);
+        child.get_satp().copy_from(self.root);
         return child;
     }
 }
