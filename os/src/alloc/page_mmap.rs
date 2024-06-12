@@ -5,14 +5,15 @@ impl PageAddress {
     pub unsafe fn smap(self, virt : usize, phys : PageAddress, flag : PTEFlag) {
         return mmap(self, virt, phys, flag | PTEOwner::Kernel.to_flag());
     }
-    /** Add a user mapping. */
+    /** Add a user-defined mapping. */
     pub unsafe fn umap(self, virt : usize, phys : PageAddress, flag : PTEFlag) {
         return mmap(self, virt, phys, flag | PTEOwner::Process.to_flag() | U);
     }
+    /** Try to add a mapping. If existed, throw. */
     pub unsafe fn new_umap(self, virt : usize, flag : PTEFlag) -> PageAddress {
         return new_mmap(self, virt, flag | PTEOwner::Process.to_flag() | U);
     }
-    /** Try to add a mapping */
+    /** Try to add a mapping. If existed, just add to the flags. */
     pub unsafe fn try_umap(self, virt : usize, flag : PTEFlag) -> PageAddress {
         return try_mmap(self, virt, flag | PTEOwner::Process.to_flag() | U);
     }

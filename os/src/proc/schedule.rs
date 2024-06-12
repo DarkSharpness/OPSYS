@@ -71,11 +71,11 @@ impl ProcessManager {
 pub unsafe fn init_process() {
     // Add trampoline to the page table
     KERNEL_SATP.map_trampoline();
- 
+
     let manager = current_cpu().get_manager();
- 
+
     manager.init();
-    manager.add_process(Process::new_test(0));
+    manager.add_process(Process::new_test(1));
 }
 
 pub unsafe fn run_process() {

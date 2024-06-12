@@ -2,6 +2,7 @@ use bitflags::bitflags;
 
 use crate::alloc::print_separator;
 use crate::alloc::get_mem_end;
+use crate::get_zero_page;
 use super::{buddy::BuddyAllocator, constant::*};
 
 #[derive(Clone, Copy)]
@@ -145,12 +146,19 @@ unsafe fn init_kernel_page(leaf : PageAddress) {
         set_normal_identity(leaf, 2, 0, i, PTEFlag::RW);
     }
 
+    // Set the address of zero page as read-only
+    // Before we drop to the supervisor mode, we need to
+    // fill the zero page with zero.
+    // After that, we can set it as read-only.
+    init_zero_page();
+    set_normal_identity(leaf, 2, 0, 1, PTEFlag::RO);
+
     // Set the address of root page table as read/write-able
     // This is because our pagetable is placed at a special
     // position, within the text section (which will be marked as RX).
     // So, we need to change it to RW.
     set_normal_identity(leaf, 2, 0, 2, PTEFlag::RW);
-} 
+}
 
 impl PageTableEntry {
     const MASK : usize = 0x3FF;
@@ -226,6 +234,7 @@ impl PageAddress {
     pub fn address(self) -> *mut u8 { (self.0 << 12) as *mut u8 }
     /** Copy at given offset from some slice */
     pub fn copy_at(self, offset : usize, slice : &[u8]) {
+        assert!(offset + slice.len() <= PAGE_SIZE, "Copy out of bound.");
         let dst = self.address().wrapping_add(offset);
         let src = slice.as_ptr();
         let len = slice.len();
@@ -269,4 +278,15 @@ unsafe fn allocate_page() -> PageAddress {
     let addr = BuddyAllocator::allocate_page();
     // warning!("Uninitialized page allocated at {:p}", addr);
     return PageAddress::new_ptr(addr);
+}
+
+extern "C" { fn end_entry(); }
+
+unsafe fn init_zero_page() {
+    let entry = end_entry as usize;
+    let start = get_zero_page().as_ptr() as *mut u8;
+    message!("End of entry: {:x}", entry);
+    message!("Zero page start: {:x}", start as usize);
+    assert!(entry < start as usize, "Invalid end address");
+    start.write_bytes(0, PAGE_SIZE);
 }

@@ -18,6 +18,8 @@ mod utility;
 
 use core::arch::{asm, global_asm};
 
+use alloc::PAGE_SIZE;
+
 global_asm!(include_str!("entry.asm"));
 global_asm!(include_str!("link_app.S"));
 
@@ -34,10 +36,14 @@ unsafe fn os_main() {
     driver::shutdown();
 }
 
-#[inline(always)]
 fn init_tid_and_end_address() {
     unsafe {
         asm!("mv tp, a0");  // Thread id
         asm!("mv gp, a1");  // End address
-    }
+    };
+}
+
+const unsafe fn get_zero_page() -> &'static [u8] {
+    let position = (0x80_000_000 as usize) + PAGE_SIZE;
+    return core::slice::from_raw_parts(position as *const u8, PAGE_SIZE);
 }

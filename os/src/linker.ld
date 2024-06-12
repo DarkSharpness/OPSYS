@@ -10,6 +10,7 @@ SECTIONS
     .text : {
         *(.text.entry)
     }
+    end_entry = .;
 
     . = BASE_ADDRESS + 0x2000;
     .data : {
