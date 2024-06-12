@@ -8,7 +8,7 @@ struct PageIterator {
     leaf    : *mut PageTableEntry,
 }
 
-use super::{page::{PTEFlag, PageAddress, PageTableEntry, U}, PAGE_BITS, PAGE_SIZE};
+use super::{page::{PTEFlag, PTEOwner, PageAddress, PageTableEntry, U}, PAGE_BITS, PAGE_SIZE};
 
 impl core::ops::Index<usize> for PageAddress {
     type Output = PageTableEntry;
@@ -26,13 +26,13 @@ impl core::ops::IndexMut<usize> for PageAddress {
 impl PageAddress {
     /** Add a supervisor mapping. */
     #[inline(always)]
-    pub unsafe fn smap(self, virt : usize, phys : PageAddress, flag : PTEFlag, owner : PTEFlag) {
-        return vmmap(self, virt, phys, flag | owner);
+    pub unsafe fn smap(self, virt : usize, phys : PageAddress, flag : PTEFlag) {
+        return vmmap(self, virt, phys, flag | PTEOwner::Kernel.to_flag());
     }
     /** Add a user mapping. */
     #[inline(always)]
-    pub unsafe fn umap(self, virt : usize, phys : PageAddress, flag : PTEFlag, owner : PTEFlag) {
-        return vmmap(self, virt, phys, flag | owner | U);
+    pub unsafe fn umap(self, virt : usize, phys : PageAddress, flag : PTEFlag) {
+        return vmmap(self, virt, phys, flag | PTEOwner::Process.to_flag() | U);
     }
 
     /**
@@ -61,7 +61,7 @@ impl PageAddress {
         let end_va      = (ph.virtual_addr() + ph.mem_size()) as usize;
         if start_va == end_va { return; }
 
-        let mut permission = PTEFlag::OWNED;
+        let mut permission = PTEFlag::EMPTY;
         let ph_flags = ph.flags();
         if ph_flags.is_read() { permission |= PTEFlag::RO; }
         if ph_flags.is_write() { permission |= PTEFlag::WO; }
@@ -73,7 +73,7 @@ impl PageAddress {
         let data = &elf.input[offset..offset + ph.file_size() as usize];
         if start_page == end_page {
             let page = PageAddress::new_rand_page();
-            self.umap(start_va, page, permission, PTEFlag::OWNED);
+            self.umap(start_va, page, permission);
             let address = page.address().wrapping_add(start_va % PAGE_SIZE);
             for i in 0..data.len() {
                 address.wrapping_add(i).write(data[i]);
@@ -275,16 +275,16 @@ unsafe fn copy_impl(dst : PageAddress, src : PageAddress) {
             for k in 0..512 {
                 let (addr, flag) = addr[k].get_entry();
                 if flag == PTEFlag::INVALID { continue; }
-                if flag.contains(PTEFlag::OTHER) {
-                    /* Do nothing */
-                } else if flag.contains(PTEFlag::OWNED) {
-                    let temp = PageAddress::new_rand_page();
-                    // The ownership has been contained in the flag.
-                    dst.umap((i << 30) | (j << 21) | (k << 12), temp, flag, PTEFlag::EMPTY);
-                    temp.address().copy_from(addr.address(), PAGE_SIZE);
-                } else {
-                    // If shared, add up the reference count.
-                    todo!("Implement duplicate_impl for other flags.");
+                match flag.get_owner() {
+                    PTEOwner::Kernel => {
+                        /* Kernel should have done it previously  */
+                    },
+                    PTEOwner::Process => {
+                        let temp = PageAddress::new_rand_page();
+                        dst.umap((i << 30) | (j << 21) | (k << 12), temp, flag);
+                        temp.address().copy_from(addr.address(), PAGE_SIZE);
+                    },
+                    _ => todo!("Implement support for other owners."),
                 }
             }
         }
@@ -301,6 +301,12 @@ impl PTEFlag {
         print_if(self.contains(X), 'X');
         print_if(self.contains(W), 'W');
         print_if(self.contains(R), 'R');
+        match self.get_owner() {
+            PTEOwner::Kernel    => { uart_print!(" | Kernel"); }
+            PTEOwner::Process   => { uart_print!(" | Process"); }
+            PTEOwner::Shared    => { uart_print!(" | Shared"); }
+            PTEOwner::Reserved  => { uart_print!(" | Reserved"); }
+        }
         uart_print!("\n");
     }
 }

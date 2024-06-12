@@ -11,7 +11,7 @@ impl PageAddress {
         for i in 0..cnt {
             let stack_page = PageAddress::new_rand_page();
             let user_stack = USER_STACK - (i + 1) * PAGE_SIZE as usize;
-            self.umap(user_stack, stack_page, PTEFlag::RW, PTEFlag::OWNED);
+            self.umap(user_stack, stack_page, PTEFlag::RW);
         }
     }
 }

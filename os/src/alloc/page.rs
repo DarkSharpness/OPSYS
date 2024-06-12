@@ -11,6 +11,13 @@ pub struct PageTableEntry(usize);
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct PTEFlag(usize);
 
+pub enum PTEOwner {
+    Kernel   = 0,   // Kernel owned, no need to destruct.
+    Process  = 1,   // Process owned, destructed when process exits.
+    Shared   = 2,   // Shared by multiple processes, need reference counting.
+    Reserved = 3,   // Reserved for future use.
+}
+
 /**
  * These flags are made private to avoid any misuse.
  * ---------------------------------------------------
@@ -42,10 +49,6 @@ bitflags! {
         const NEXT      = 1;        // Next level of page table
         const INVALID   = 0;        // Invalid page table entry
         const EMPTY     = 0;        // Empty page table entry
-
-        const OTHER     = 0b00 << 8; // Default, kernel owned.
-        const OWNED     = 0b01 << 8; // Exclusive mapping
-        const SHARED    = 0b10 << 8; // Shared mapping, need ref count.
     }
 }
 
@@ -162,6 +165,30 @@ impl PageTableEntry {
     }
 }
 
+impl PTEFlag {
+    pub const fn get_owner(&self) -> PTEOwner {
+        match self.bits() >> 8 {
+            0b00 => PTEOwner::Kernel,
+            0b01 => PTEOwner::Process,
+            0b10 => PTEOwner::Shared,
+            0b11 => PTEOwner::Reserved,
+            _    => unreachable!(),
+        }
+    }
+}
+
+impl PTEOwner {
+    #[inline(always)]
+    pub(super) const fn to_flag(&self) -> PTEFlag {
+        match self {
+            PTEOwner::Kernel   => PTEFlag(0b00 << 8),
+            PTEOwner::Process  => PTEFlag(0b01 << 8),
+            PTEOwner::Shared   => PTEFlag(0b10 << 8),
+            PTEOwner::Reserved => panic!("Reserved is not allowed."),
+        }
+    }
+}
+
 impl PageAddress {
     /** Return a zero-filled page for page table. */
     pub fn new_pagetable() -> Self { unsafe { allocate_zero() } }
@@ -184,7 +211,7 @@ impl PageAddress {
     fn new_normal(ppn0 : usize, ppn1 : usize, ppn2 : usize) -> Self {
         PageAddress(ppn0 << 18 | ppn1 << 9 | ppn2)
     }
-    pub(crate) unsafe fn get_entry(&self, x : usize) -> &mut PageTableEntry {
+    pub(super) unsafe fn get_entry(&self, x : usize) -> &mut PageTableEntry {
         &mut *((self.0 << 12) as *mut PageTableEntry).wrapping_add(x)
     }
 
