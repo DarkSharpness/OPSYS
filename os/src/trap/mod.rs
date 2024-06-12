@@ -39,7 +39,7 @@ unsafe fn get_trampoline_physical() -> PageAddress {
 
 impl PageAddress {
     pub unsafe fn map_trampoline(self) {
-        self.smap(TRAMPOLINE, get_trampoline_physical(), PTEFlag::RX | PTEFlag::OTHER);
+        self.smap(TRAMPOLINE, get_trampoline_physical(), PTEFlag::RX, PTEFlag::OTHER);
     }
 }
 

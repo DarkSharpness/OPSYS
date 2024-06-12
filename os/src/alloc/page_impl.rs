@@ -25,12 +25,14 @@ impl core::ops::IndexMut<usize> for PageAddress {
 
 impl PageAddress {
     /** Add a supervisor mapping. */
-    pub unsafe fn smap(self, virt : usize, phys : PageAddress, flag : PTEFlag) {
-        return vmmap(self, virt, phys, flag);
+    #[inline(always)]
+    pub unsafe fn smap(self, virt : usize, phys : PageAddress, flag : PTEFlag, owner : PTEFlag) {
+        return vmmap(self, virt, phys, flag | owner);
     }
     /** Add a user mapping. */
-    pub unsafe fn umap(self, virt : usize, phys : PageAddress, flag : PTEFlag) {
-        return vmmap(self, virt, phys, flag | U);
+    #[inline(always)]
+    pub unsafe fn umap(self, virt : usize, phys : PageAddress, flag : PTEFlag, owner : PTEFlag) {
+        return vmmap(self, virt, phys, flag | owner | U);
     }
 
     /**
@@ -71,7 +73,7 @@ impl PageAddress {
         let data = &elf.input[offset..offset + ph.file_size() as usize];
         if start_page == end_page {
             let page = PageAddress::new_rand_page();
-            self.umap(start_va, page, permission);
+            self.umap(start_va, page, permission, PTEFlag::OWNED);
             let address = page.address().wrapping_add(start_va % PAGE_SIZE);
             for i in 0..data.len() {
                 address.wrapping_add(i).write(data[i]);
@@ -277,7 +279,8 @@ unsafe fn copy_impl(dst : PageAddress, src : PageAddress) {
                     /* Do nothing */
                 } else if flag.contains(PTEFlag::OWNED) {
                     let temp = PageAddress::new_rand_page();
-                    dst.umap((i << 30) | (j << 21) | (k << 12), temp, flag);
+                    // The ownership has been contained in the flag.
+                    dst.umap((i << 30) | (j << 21) | (k << 12), temp, flag, PTEFlag::EMPTY);
                     temp.address().copy_from(addr.address(), PAGE_SIZE);
                 } else {
                     // If shared, add up the reference count.

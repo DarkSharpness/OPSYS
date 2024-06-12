@@ -41,8 +41,9 @@ bitflags! {
 
         const NEXT      = 1;        // Next level of page table
         const INVALID   = 0;        // Invalid page table entry
+        const EMPTY     = 0;        // Empty page table entry
 
-        const OTHER     = 0b00 << 8; // Default, no permission.
+        const OTHER     = 0b00 << 8; // Default, kernel owned.
         const OWNED     = 0b01 << 8; // Exclusive mapping
         const SHARED    = 0b10 << 8; // Shared mapping, need ref count.
     }

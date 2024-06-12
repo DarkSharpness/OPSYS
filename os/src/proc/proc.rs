@@ -29,7 +29,7 @@ pub struct Process {
 impl PageAddress {
     unsafe fn map_trap_frame(self) -> &'static mut TrapFrame {
         let trap_frame = PageAddress::new_rand_page();
-        self.smap(TRAP_FRAME, trap_frame, PTEFlag::RW | PTEFlag::OWNED);
+        self.smap(TRAP_FRAME, trap_frame, PTEFlag::RW, PTEFlag::OTHER);
         return &mut *(trap_frame.address() as *mut TrapFrame);
     }
     unsafe fn new_kernel_stack() -> usize {
