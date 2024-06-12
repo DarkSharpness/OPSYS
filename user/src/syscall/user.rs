@@ -1,5 +1,6 @@
 use sys::syscall::*;
 
+#[derive(Clone, Copy)]
 pub struct FileDescriptor(isize);
 
 fn syscall0(id : usize) -> isize {
@@ -79,18 +80,18 @@ pub unsafe fn sys_close(fd : FileDescriptor) -> isize {
     syscall1(SYS_CLOSE, [fd.0 as _])
 }
 
-pub unsafe fn sys_write(fd : FileDescriptor, buf : *const u8, len : usize) -> isize {
-    syscall3(SYS_WRITE, [fd.0 as _, buf as _, len])
+pub unsafe fn sys_write(fd : FileDescriptor, buf : &[u8]) -> isize {
+    syscall3(SYS_WRITE, [fd.0 as _, buf.as_ptr() as _, buf.len()])
 }
 
-pub unsafe fn sys_read(fd : FileDescriptor, buf : *mut u8, len : usize) -> isize {
-    syscall3(SYS_READ, [fd.0 as _, buf as _, len])
+pub unsafe fn sys_read(fd : FileDescriptor, buf : &mut [u8]) -> isize {
+    syscall3(SYS_READ, [fd.0 as _, buf.as_mut_ptr() as _, buf.len()])
 }
 
 pub unsafe fn sys_yield() { syscall0(SYS_YIELD); }
 
 impl FileDescriptor {
-    pub unsafe fn new(fd : isize) -> FileDescriptor {
+    pub const unsafe fn new(fd : isize) -> FileDescriptor {
         return FileDescriptor(fd);
     }
 }
