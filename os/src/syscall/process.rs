@@ -3,22 +3,20 @@ use crate::{cpu::CPU, proc::Process};
 impl CPU {
     pub(super) unsafe fn exit_as(&mut self, status: usize) {
         use sys::syscall::*;
-        if true { todo!() }
+        if true { todo!("Implement exit") }
 
         self.service_request_block([status, 0, 0, PM_EXIT, PM_PORT]);
     }
 
-    unsafe fn fork(&mut self) -> &mut Process {
-        let process = &mut *self.get_process();
-        return self.get_manager().add_process(process.fork());
-    }
-
     pub unsafe fn sys_fork(&mut self) {
-        let child       = self.fork();
-        let child_pid   = child.get_pid().raw_bits();
+        let process     = &mut *self.get_process();
+        let child       = process.fork();
 
-        use sys::syscall::*;
-        self.service_request_block([child_pid, 0, 0, PM_FORK, PM_PORT]);
+        // let child_pid   = child.get_pid().raw_bits();
+        // use sys::syscall::*;
+        // self.service_request_block([child_pid, 0, 0, PM_FORK, PM_PORT]);
+
+        self.get_manager().add_process(child);
     }
 
     pub unsafe fn sys_exit(&mut self){
