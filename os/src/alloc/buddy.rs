@@ -172,7 +172,11 @@ impl BuddyAllocator {
 }
 
 #[inline(always)]
-unsafe fn rklist(idx : usize) -> &'static mut List { return RKLIST.get_unchecked_mut(idx); }
+unsafe fn rklist(idx : usize) -> &'static mut List {
+    assert!(idx < TOP_RANK, "Out of memory!");
+    return RKLIST.get_unchecked_mut(idx);
+}
+
 #[inline(always)]
 unsafe fn mask(rank : usize) -> usize { return 1 << (TOP_RANK - 1 - rank); }
 /** Divide and mod operation to get word and offset. */
