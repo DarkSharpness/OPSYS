@@ -1,4 +1,4 @@
-use crate::{cpu::CPU, proc::{Process, ProcessStatus}};
+use crate::proc::{Process, ProcessStatus};
 extern crate alloc;
 use alloc::collections::VecDeque;
 
@@ -33,13 +33,12 @@ impl Service {
         return Some(self.servant);
     }
 
-    pub unsafe fn wait_for_request(&mut self, cpu : &mut CPU) -> &mut Request {
-        let process = cpu.get_process();
+    pub unsafe fn wait_for_request(&mut self, process : &mut Process) -> &mut Request {
         self.set_servant(process);
 
         while self.waiting.is_empty() {
-            cpu.sleep_as(ProcessStatus::SERVING);
-            cpu.sys_yield();
+            process.sleep_as(ProcessStatus::SERVING);
+            process.yield_to_scheduler();
         }
 
         self.reset_servant(process);

@@ -9,6 +9,11 @@ pub struct Request {
 }
 
 impl Request {
+    pub unsafe fn new (args : Argument, kind : usize, process : &mut Process) -> Self {
+        let handle = ServiceHandle::from_process(process);
+        return Self { kind, args, handle };
+    }
+
     /** Create a new blocking request. */
     pub unsafe fn new_block(args : &[usize], process : &mut Process) -> Self {
         let kind = args[3];

@@ -60,11 +60,10 @@ impl ProcessManager {
         self.process_queue.reserve(64);
     }
 
-    pub unsafe fn add_process(&mut self, process : Process) -> &mut Process {
+    pub unsafe fn add_process(&mut self, process : Process) {
         self.process_queue.push_back(process);
         let back = self.process_queue.back_mut().unwrap();
         PidType::register(back);
-        return back;
     }
 }
 

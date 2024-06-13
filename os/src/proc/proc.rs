@@ -2,7 +2,6 @@ extern crate alloc;
 
 use riscv::register::satp;
 
-use crate::cpu::*;
 use crate::driver::get_tid;
 use crate::alloc::{PTEFlag, PageAddress, PAGE_SIZE};
 use crate::service::Argument;
@@ -110,12 +109,5 @@ impl Process {
     pub fn wake_up_from(&mut self, status : ProcessStatus) {
         assert_eq!(self.status, status, "Invalid to wake up!");
         self.status = ProcessStatus::RUNNABLE;
-    }
-}
-
-impl CPU {
-    pub unsafe fn sleep_as(&mut self, status : ProcessStatus) {
-        let process = self.get_process();
-        return (*process).sleep_as(status);
     }
 }

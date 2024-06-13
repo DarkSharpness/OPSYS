@@ -1,6 +1,6 @@
 use alloc::collections::VecDeque;
 
-use crate::{console::print_separator, cpu::CPU, utility::DequeIter};
+use crate::{console::print_separator, proc::Process, utility::DequeIter};
 
 use super::console::Console;
 extern crate alloc;
@@ -129,15 +129,14 @@ mod lsr {
     pub const RX_DONE : u8 = 0x1 << 0;      // Receiver FIFO not empty
 }
 
-impl CPU {
+impl Process {
     pub unsafe fn console_read(&mut self, dst : usize, len : usize) -> usize {
         return CONSOLE.try_read(self, dst, len);
     }
     pub unsafe fn console_write(&mut self, src : usize, len : usize) -> usize {
         let buffer = &mut WRITE_BUFFER.0;
         buffer.reserve(len);
-        let process = &mut (*self.get_process());
-        process.get_satp().user_to_core(DequeIter::new(buffer), src, len);
+        self.get_satp().user_to_core(DequeIter::new(buffer), src, len);
         uart_try_send();
         return len;
     }

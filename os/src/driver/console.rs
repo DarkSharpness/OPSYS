@@ -1,7 +1,7 @@
 extern crate alloc;
 
 use alloc::{collections::VecDeque, vec::Vec};
-use crate::{cpu::CPU, proc::{Process, ProcessStatus}, utility::DequeIter};
+use crate::{proc::{Process, ProcessStatus}, utility::DequeIter};
 
 use super::uart::sync_putc;
 
@@ -23,6 +23,7 @@ impl Console {
     const U : u8 = ('U' as u8) - ('@' as u8);   // Remove a line
     const H : u8 = ('H' as u8) - ('@' as u8);   // Delete a character
     const D : u8 = ('D' as u8) - ('@' as u8);   // End of file
+    const X : u8 = ('X' as u8) - ('@' as u8);   // Kill the kernel
     const DELETE : u8 = 127;                    // Delete a character
     const ENTER  : u8 = 13;                     // Enter
 
@@ -62,13 +63,14 @@ impl Console {
     }
 
     pub unsafe fn try_read
-        (&mut self, cpu : &mut CPU, dst : usize, len : usize) -> usize {
-        let process = &mut *cpu.get_process();
+        (&mut self, process : &mut Process, dst : usize, len : usize) -> usize {
         self.queue.push_back(process);
+
         while self.stdin.len() == 0 {
-            (*process).sleep_as(ProcessStatus::SERVICE);
-            cpu.process_yield();
+            process.sleep_as(ProcessStatus::SERVICE);
+            process.yield_to_scheduler();
         }
+
         let len = core::cmp::min(len, self.stdin.len());
         process.get_satp().
             core_to_user(dst, len, DequeIter::new(&mut self.stdin));
@@ -97,6 +99,7 @@ impl Console {
             Self::P                => todo!("Dump the process"),
             Self::U                => self.try_flushline(),
             Self::H | Self::DELETE => self.try_backspace(),
+            Self::X                => panic!("Kernel is killed"),
             _ => return false,
         }
         return true;   // The character is interpreted.

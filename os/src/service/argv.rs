@@ -1,7 +1,7 @@
 extern crate alloc;
 use alloc::{boxed::Box, vec::Vec};
 
-use crate::{proc::Process, utility::SliceIter};
+use crate::{alloc::PTEFlag, proc::Process, utility::SliceIter};
 
 pub enum Argument {
     Register(usize, usize),     // In 2 registers.
@@ -10,7 +10,11 @@ pub enum Argument {
 }
 
 impl Argument {
+    pub unsafe fn new_registers(arg0 : usize, arg1 : usize) -> Self {
+        return Self::Register(arg0, arg1);
+    }
     pub unsafe fn new(args : &[usize], process : &mut Process) -> Self {
+        process.address_check(args, PTEFlag::RO);
         match args[2] {
             0 => {
                 Self::Register(args[0], args[1])
