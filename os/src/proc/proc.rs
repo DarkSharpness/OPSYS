@@ -5,6 +5,7 @@ use riscv::register::satp;
 use crate::cpu::*;
 use crate::driver::get_tid;
 use crate::alloc::{PTEFlag, PageAddress, PAGE_SIZE};
+use crate::service::Argument;
 use crate::trap::{user_trap, TrapFrame, TRAP_FRAME};
 use super::memory::MemoryArea;
 use super::{Context, PidType};
@@ -25,6 +26,7 @@ pub struct Process {
     memory      : MemoryArea,       // memory area
     trap_frame  : * mut TrapFrame,  // trap frame
     context     : Context,          // current context
+    response    : Option<Argument>, // response from service
 }
 
 impl PageAddress {
@@ -60,6 +62,7 @@ impl Process {
             status  : ProcessStatus::RUNNABLE,
             pid     : PidType::allocate(),
             context : Context::new_with(core_stack),
+            response : None,
             memory, trap_frame
         };
     }
