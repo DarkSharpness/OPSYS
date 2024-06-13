@@ -73,7 +73,7 @@ impl PageAddress {
 
             if rest > 0 {
                 let page = self.try_umap(now_va, permission);
-                page.copy_at(offset, &zero_page[..rest]);
+                page.copy_at(0, &zero_page[..rest]);
             }
         }
     }
