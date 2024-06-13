@@ -9,24 +9,27 @@ pub enum Argument {
     Upointer(*mut u8, usize),   // In a user pointer
 }
 
+fn create_sized_boxed(size : usize) -> Box<[u8]> {
+    let mut tmp : Vec<u8> = Vec::new();
+    tmp.resize(size, 0);
+    return tmp.into_boxed_slice();
+}
+
 impl Argument {
-    pub unsafe fn new_registers(arg0 : usize, arg1 : usize) -> Self {
-        return Self::Register(arg0, arg1);
-    }
-    pub unsafe fn new(args : &[usize], process : &mut Process) -> Self {
-        process.address_check(args, PTEFlag::RO);
+    pub unsafe fn new(args : [usize; 3], process : &mut Process) -> Self {
         match args[2] {
             0 => {
                 Self::Register(args[0], args[1])
             },
             1 => {
-                let mut tmp : Vec<u8> = Vec::new();
-                tmp.resize(args[1], 0);
-                let mut dst = tmp.into_boxed_slice();
-                process.get_satp().user_to_core(SliceIter::new(&mut dst), args[0], args[1]);
+                let buf = args[0];
+                let len = args[1];
+                let mut dst = create_sized_boxed(len);
+                process.address_check([buf, len], PTEFlag::RO);
+                process.get_satp().user_to_core(SliceIter::new(&mut dst), buf, len);
                 Self::Buffered(dst)
             },
-            _ => panic!("Invalid argument"),
+            _ => panic!("Invalid argument for syscall"),
         }
     }
 }

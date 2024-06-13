@@ -89,4 +89,12 @@ impl Process {
         assert_eq!(self.status, status, "Invalid to wake up!");
         self.status = ProcessStatus::RUNNABLE;
     }
+
+    pub fn set_response(&mut self, response : Argument) {
+        self.response = Some(response);
+    }
+
+    pub fn get_response(&mut self) -> Option<Argument> {
+        return self.response.take();
+    }
 }

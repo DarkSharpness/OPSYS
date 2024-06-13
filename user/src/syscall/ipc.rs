@@ -13,7 +13,7 @@ pub struct AcceptPacket {
     result      : isize,    // Not Visible
 }
 
-pub fn sys_request(args : [usize; 3], port : usize, kind : usize, sync : bool) -> isize {
+pub fn sys_request(args : [usize; 3], port : usize, kind : usize) -> isize {
     let mut ret : isize;
     unsafe {
         core::arch::asm!(
@@ -22,7 +22,6 @@ pub fn sys_request(args : [usize; 3], port : usize, kind : usize, sync : bool) -
             in("a1") args[1],
             in("a2") args[2],
             in("a4") kind,
-            in("a5") sync as usize,
             in("a6") port,
             in("a7") SYS_REQUEST,
             lateout("a0") ret,
@@ -57,11 +56,14 @@ pub fn sys_receive(args : [usize; 3], port : usize) -> AcceptPacket {
     };
 }
 
-pub fn sys_respond(handle : IPCHandle) -> isize {
+pub fn sys_respond(args : [usize; 3], handle : IPCHandle) -> isize {
     let mut ret : isize;
     unsafe {
         core::arch::asm!(
             "ecall",
+            in("a0") args[0],
+            in("a1") args[1],
+            in("a2") args[2],
             in("a5") handle.0,
             in("a7") SYS_RESPOND,
             lateout("a0") ret,

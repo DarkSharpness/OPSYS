@@ -5,10 +5,11 @@ mod request;
 
 extern crate alloc;
 pub use argv::Argument;
+use handle::ServiceHandle;
 use request::Request;
 use service::Service;
 
-use crate::{alloc::PTEFlag, proc::{Process, ProcessStatus}};
+use crate::proc::{Process, ProcessStatus};
 
 const MAX_SERVICE : usize = 16;
 const ARRAY_REPEAT_VALUE: Service = Service::new();
@@ -29,16 +30,15 @@ impl Process {
     pub unsafe fn service_receive(&mut self, port : usize) {
         let service = &mut SERVICE[port];
         let request = service.wait_for_request(self);
-        if request.forward(self) {
+        if request.try_forward(self) {
             service.pop_front();
         }
     }
 
-    pub unsafe fn address_check(&mut self, args : &[usize], permission : PTEFlag) {
-        if args[2] != 0 {
-            if !self.get_satp().check_ptr(args[0], args[1], permission) {
-                self.exit_as(1);
-            }
-        }
+    pub unsafe fn service_respond(&mut self, args : Argument, handle : usize) {
+        let handle = ServiceHandle::new(handle);
+        let target = &mut *handle.to_process();
+        target.set_response(args);
+        self.yield_to_process(target);
     }
 }

@@ -62,7 +62,6 @@ impl IMPLEMENTEDCPU {
 
     /** Switch from current process to the scheduler. Timer is reset. */
     pub unsafe fn process_yield(&mut self) {
-        self.reset_timer_time();
         let old = self.get_process();
         off(old);
         switch_context((*old).get_context(), self.get_context());
@@ -85,7 +84,6 @@ impl Process {
     /** Switch from current process to the scheduler. Timer is reset. */
     pub unsafe fn yield_to_scheduler(&mut self) {
         let cpu = current_cpu();
-        cpu.reset_timer_time();
         off(self);
         switch_context(self.get_context(), cpu.get_context());
     }
