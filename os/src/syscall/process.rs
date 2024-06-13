@@ -24,7 +24,7 @@ impl Process {
     pub unsafe fn exit_as(&mut self, status: usize) -> ! {
         use sys::syscall::*;
         self.service_request(Argument::Register(status, 0), PM_EXIT, PM_PORT);
-        todo!("Implement exit")
+        todo!("Implement exit {:?}", status);
     }
 }
 

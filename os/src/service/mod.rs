@@ -36,7 +36,9 @@ impl Process {
 
     pub unsafe fn address_check(&mut self, args : &[usize], permission : PTEFlag) {
         if args[2] != 0 {
-            self.get_satp().check_ptr(args[0], args[1], permission);
+            if !self.get_satp().check_ptr(args[0], args[1], permission) {
+                self.exit_as(1);
+            }
         }
     }
 }

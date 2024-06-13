@@ -1,3 +1,9 @@
+use riscv::register::satp;
+
+use crate::alloc::{PTEFlag, PageAddress, PAGE_SIZE};
+
+use super::{user_trap, TRAP_FRAME};
+
 #[repr(C)]
 pub struct TrapFrame {
     pub ra  : usize,
@@ -36,10 +42,10 @@ pub struct TrapFrame {
     pub sp  : usize,
     pub pc  : usize,
 
-    pub thread_number   : usize,  // real thread number
-    pub kernel_satp     : usize,  // kernel page table
-    pub kernel_trap     : usize,  // kernel trap handler
-    pub kernel_stack    : usize,  // kernel stack pointer
+    thread_number   : usize,  // real thread number
+    kernel_satp     : usize,  // kernel page table
+    kernel_trap     : usize,  // kernel trap handler
+    kernel_stack    : usize,  // kernel stack pointer
 }
 
 impl TrapFrame {
@@ -48,5 +54,24 @@ impl TrapFrame {
         let dst = self as *const TrapFrame as *mut usize;
         let src = src as *const TrapFrame as *const usize;
         dst.copy_from(src, 32);
+    }
+}
+
+impl PageAddress {
+    /** Create a trap frame with all the private members initialized. */
+    pub unsafe fn map_trap_frame(&self) -> (&'static mut TrapFrame, usize) {
+        let trap_frame = PageAddress::new_rand_page();
+        self.smap(TRAP_FRAME, trap_frame, PTEFlag::RW);
+        let trap_frame = &mut *(trap_frame.address() as *mut TrapFrame);
+
+        let kernel_stack = PageAddress::new_rand_page();
+        let kernel_stack_top = kernel_stack.address() as usize + PAGE_SIZE;
+
+        trap_frame.thread_number = 0;
+        trap_frame.kernel_stack = kernel_stack_top;
+        trap_frame.kernel_satp = satp::read().bits();
+        trap_frame.kernel_trap  = user_trap as _;
+
+        return (trap_frame, kernel_stack_top);
     }
 }

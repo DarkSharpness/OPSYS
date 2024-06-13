@@ -1,11 +1,8 @@
 extern crate alloc;
 
-use riscv::register::satp;
-
-use crate::driver::get_tid;
-use crate::alloc::{PTEFlag, PageAddress, PAGE_SIZE};
+use crate::alloc::PageAddress;
 use crate::service::Argument;
-use crate::trap::{user_trap, TrapFrame, TRAP_FRAME};
+use crate::trap::TrapFrame;
 use super::memory::MemoryArea;
 use super::{Context, PidType};
 
@@ -28,18 +25,6 @@ pub struct Process {
     response    : Option<Argument>, // response from service
 }
 
-impl PageAddress {
-    unsafe fn map_trap_frame(self) -> &'static mut TrapFrame {
-        let trap_frame = PageAddress::new_rand_page();
-        self.smap(TRAP_FRAME, trap_frame, PTEFlag::RW);
-        return &mut *(trap_frame.address() as *mut TrapFrame);
-    }
-    unsafe fn new_kernel_stack() -> usize {
-        let stack = Self::new_rand_page();
-        return stack.address() as usize + PAGE_SIZE;
-    }
-}
-
 impl Process {
     /** Initialize those necessary resources first. */
     pub unsafe fn init() -> Process {
@@ -48,19 +33,13 @@ impl Process {
         message!("Process created with root {:#x}", root.address() as usize);
 
         root.map_trampoline();
-        let trap_frame = root.map_trap_frame();
-        let core_stack = PageAddress::new_kernel_stack();
-
-        trap_frame.thread_number = get_tid();
-        trap_frame.kernel_stack = core_stack;
-        trap_frame.kernel_satp  = satp::read().bits();
-        trap_frame.kernel_trap  = user_trap as _;
+        let (trap_frame, kernel_stack) = root.map_trap_frame();
 
         // Complete the resource initialization.
         return Process {
             status  : ProcessStatus::RUNNABLE,
             pid     : PidType::allocate(),
-            context : Context::new_with(core_stack),
+            context : Context::new_with(kernel_stack),
             response : None,
             memory, trap_frame
         };

@@ -203,8 +203,6 @@ impl PTEOwner {
 impl PageAddress {
     /** Return a zero-filled page for page table. */
     pub fn new_pagetable() -> Self { unsafe { allocate_zero() } }
-    /** Return a zero-filled page  */
-    pub fn new_zero_page() -> Self { unsafe { allocate_zero() } }
     /** Return an uninitialized page with random bits. */
     pub fn new_rand_page() -> Self { unsafe { allocate_page() } }
     /** Return a page with given physical address entry. */

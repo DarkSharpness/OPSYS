@@ -7,7 +7,7 @@ use super::Process;
 const USER_STACK : usize = 1 << 38;
 
 impl PageAddress {
-    unsafe fn map_stack(self, cnt : usize) {
+    unsafe fn map_user_stack(self, cnt : usize) {
         for i in 0..cnt {
             let stack_page = PageAddress::new_rand_page();
             let user_stack = USER_STACK - (i + 1) * PAGE_SIZE as usize;
@@ -58,7 +58,7 @@ impl Process {
         let trap_frame = process.get_trap_frame();
         trap_frame.pc = elf.header.pt2.entry_point() as usize;
         trap_frame.sp = USER_STACK;
-        process.get_satp().map_stack(1);
+        process.get_satp().map_user_stack(1);
 
         return process;
     }

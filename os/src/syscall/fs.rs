@@ -18,7 +18,7 @@ impl CPU {
         let buf = trap_frame.a1;
         let len = trap_frame.a2;
 
-        process.address_check(&[buf, len * 1000000, 1], PTEFlag::RO);
+        process.address_check(&[buf, len, 1], PTEFlag::RO);
         let result = process.console_write(buf, len);
         process.get_trap_frame().a0 = result;
     }
