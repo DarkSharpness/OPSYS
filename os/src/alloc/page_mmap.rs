@@ -65,7 +65,7 @@ unsafe fn new_mmap(root : PageAddress, virt : usize, __flag : PTEFlag) -> PageAd
     let page = &mut *mmap_until_root(root, virt, __flag);
     let (_, flag) = page.get_entry();
     assert!(flag == PTEFlag::INVALID, "Mapping existed!");
-    let new = PageAddress::new_rand_page();
+    let new = PageAddress::new_pagetable();
     page.set_entry(new, __flag);
     return new;
 }
@@ -75,7 +75,7 @@ unsafe fn try_mmap(root : PageAddress, virt : usize, __flag : PTEFlag) -> PageAd
     let page = &mut *mmap_until_root(root, virt, __flag);
     let (old, flag) = page.get_entry();
     if flag == PTEFlag::INVALID {
-        let phys = PageAddress::new_rand_page();
+        let phys = PageAddress::new_pagetable();
         warning!("Adding mapping success!");
         page.set_entry(phys, __flag);
         return phys;
