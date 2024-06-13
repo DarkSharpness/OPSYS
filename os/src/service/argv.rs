@@ -1,5 +1,6 @@
 extern crate alloc;
 use alloc::{boxed::Box, vec::Vec};
+use sys::syscall::{ARGS_BUFFERED, ARGS_REGISTER};
 
 use crate::{alloc::PTEFlag, proc::Process, utility::SliceIter};
 
@@ -18,10 +19,10 @@ fn create_sized_boxed(size : usize) -> Box<[u8]> {
 impl Argument {
     pub unsafe fn new(args : [usize; 3], process : &mut Process) -> Self {
         match args[2] {
-            0 => {
+            ARGS_REGISTER => {
                 Self::Register(args[0], args[1])
             },
-            1 => {
+            ARGS_BUFFERED => {
                 let buf = args[0];
                 let len = args[1];
                 let mut dst = create_sized_boxed(len);

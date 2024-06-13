@@ -1,3 +1,5 @@
+use sys::syscall::{ARGS_BUFFERED, ARGS_REGISTER};
+
 use crate::{alloc::PTEFlag, proc::Process, utility::SliceIter};
 
 use super::{argv::Argument, handle::ServiceHandle};
@@ -24,21 +26,20 @@ impl Request {
             Argument::Register(a0, a1) => {
                 trap_frame.a0 = *a0;
                 trap_frame.a1 = *a1;
-                trap_frame.a2 = 0;
+                trap_frame.a2 = ARGS_REGISTER;
                 trap_frame.a4 = self.kind;
                 trap_frame.a5 = self.handle.bits();
             },
             Argument::Buffered(buffer) => {
                 // Not enough space to write, so return false.
-                if trap_frame.a2 != 1 || trap_frame.a1 < buffer.len() {
-                    trap_frame.a1 = 0;
+                if trap_frame.a2 != ARGS_BUFFERED || trap_frame.a1 < buffer.len() {
                     trap_frame.a4 = self.kind;
                     trap_frame.a5 = buffer.len().wrapping_neg();
                     return false;
                 }
 
                 trap_frame.a1 = buffer.len();
-                trap_frame.a2 = 1;
+                trap_frame.a2 = ARGS_BUFFERED;
                 trap_frame.a4 = self.kind;
                 trap_frame.a5 = self.handle.bits();
 
@@ -57,6 +58,4 @@ impl Request {
         }
         return true;
     }
-
-
 }

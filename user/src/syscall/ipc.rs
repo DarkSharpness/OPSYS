@@ -1,16 +1,20 @@
 use sys::syscall::*;
 
 pub struct IPCHandle(usize);
+pub enum Argument {
+    Register(usize, usize),     // In 2 registers.
+    Buffered(*mut u8, usize),   // In a user buffer.
+}
 pub enum IPCEnum {
-    IPCAsync,
-    IPCHandle(IPCHandle),
-    IPCRemain(usize),
+    IPCFail(usize),                 // Buffer too small, give you the needed size.
+    IPCAsync(Argument),             // Asynchronous IPC.
+    IPCHandle(Argument, IPCHandle), // With argument and handle.
 }
 
 pub struct AcceptPacket {
-    pub args    : [usize; 3],
-    pub kind    : usize,
-    result      : isize,    // Not Visible
+    args    : [usize; 3],
+    kind    : usize,
+    result  : isize,
 }
 
 pub fn sys_request(args : [usize; 3], port : usize, kind : usize) -> isize {
@@ -73,13 +77,29 @@ pub fn sys_respond(args : [usize; 3], handle : IPCHandle) -> isize {
 }
 
 impl AcceptPacket {
-    pub fn parse_result(&self) -> IPCEnum {
-         if self.result == 0 {
-            return IPCEnum::IPCAsync;
-        } else if self.result < 0 {
-            return IPCEnum::IPCRemain(-self.result as usize);
+    pub fn parse(&self) -> IPCEnum {
+        if self.result < 0 {
+            return IPCEnum::IPCFail(-self.result as usize);
+        }
+
+        let argument = self.parse_argument();
+        if self.result == 0 {
+            return IPCEnum::IPCAsync(argument);
         } else {
-            return IPCEnum::IPCHandle(IPCHandle(self.result as usize));
+            return IPCEnum::IPCHandle(argument, IPCHandle(self.result as usize));
         }
     }
+
+    fn parse_argument(&self) -> Argument {
+        match self.kind {
+            ARGS_REGISTER => Argument::Register(self.args[0], self.args[1]),
+            ARGS_BUFFERED => Argument::Buffered(self.args[0] as *mut u8, self.args[1]),
+            _ => panic!("Unknown kind of argument."),
+        }
+    }
+}
+
+impl IPCHandle {
+    /** Get the process id of the process who have requested. */
+    pub unsafe fn get_pid(&self) -> usize { return handle_to_pid(self.0); }
 }

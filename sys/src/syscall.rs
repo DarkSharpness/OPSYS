@@ -26,3 +26,6 @@ const MAGIC : usize = 1919;
 
 pub unsafe fn pid_to_handle(x : usize) -> usize { x + MAGIC }
 pub unsafe fn handle_to_pid(x : usize) -> usize { x - MAGIC }
+
+pub const ARGS_REGISTER : usize = 0; // Argument * 2
+pub const ARGS_BUFFERED : usize = 1; // Buffer + Length
