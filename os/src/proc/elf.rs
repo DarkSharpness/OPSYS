@@ -63,13 +63,14 @@ impl PageAddress {
             page.copy_at(offset, &zero_page[..remain]);
             let mut now_va = start_va + remain;
 
-            while mem_size - remain >= PAGE_SIZE {
+            let mut rest = mem_size - remain;
+            while rest >= PAGE_SIZE {
                 let page = self.new_umap(now_va, permission);
                 page.copy_at(0, zero_page);
                 now_va += PAGE_SIZE;
+                rest -= PAGE_SIZE;
             }
 
-            let rest = mem_size - remain;
             if rest > 0 {
                 let page = self.try_umap(now_va, permission);
                 page.copy_at(offset, &zero_page[..rest]);
