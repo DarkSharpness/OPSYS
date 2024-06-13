@@ -18,7 +18,7 @@ impl PageAddress {
 
 impl Process {
     pub(super) unsafe fn new_test(which : usize) -> Process {
-        let process = Process::init();
+        let mut process = Process::init();
 
         extern "C" { static _num_app : usize; }
 
@@ -39,13 +39,21 @@ impl Process {
         let magic = elf_header.pt1.magic;
         assert_eq!(magic, [0x7f, 0x45, 0x4c, 0x46], "invalid elf!");
         let ph_count = elf_header.pt2.ph_count();
+        let mut max_vaddr = 0;
         for i in 0..ph_count {
             let ph = elf.program_header(i).unwrap();
             if ph.get_type().unwrap() == xmas_elf::program::Type::Load {
                 // message!("{}", ph);
-                process.get_satp().load_from_elf(ph, &elf);
+                let vaddr_end = process.get_satp().load_from_elf(ph, &elf);
+                if vaddr_end > max_vaddr {
+                    max_vaddr = vaddr_end;
+                }
             }
         }
+
+        let memory = process.get_memory_area();
+
+        message!("Program end: {:#x}", memory.set_program_end(max_vaddr));
 
         let trap_frame = process.get_trap_frame();
         trap_frame.pc = elf.header.pt2.entry_point() as usize;

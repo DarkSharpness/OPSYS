@@ -3,6 +3,7 @@ mod pid;
 mod elf;
 mod proc;
 mod test;
+mod memory;
 mod context;
 mod schedule;
 

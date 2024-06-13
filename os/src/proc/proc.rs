@@ -6,6 +6,7 @@ use crate::cpu::*;
 use crate::driver::get_tid;
 use crate::alloc::{PTEFlag, PageAddress, PAGE_SIZE};
 use crate::trap::{user_trap, TrapFrame, TRAP_FRAME};
+use super::memory::MemoryArea;
 use super::{Context, PidType};
 
 const USER_STACK : usize = 1 << 38;
@@ -21,7 +22,7 @@ pub enum ProcessStatus {
 pub struct Process {
     pid         : PidType,          // process id
     status      : ProcessStatus,    // process status
-    root        : PageAddress,      // root of the page table
+    memory      : MemoryArea,       // memory area
     trap_frame  : * mut TrapFrame,  // trap frame
     context     : Context,          // current context
 }
@@ -41,7 +42,8 @@ impl PageAddress {
 impl Process {
     /** Initialize those necessary resources first. */
     pub unsafe fn init() -> Process {
-        let root = PageAddress::new_pagetable();
+        let memory = MemoryArea::new();
+        let root = memory.get_satp();
         message!("Process created with root {:#x}", root.address() as usize);
 
         root.map_trampoline();
@@ -58,7 +60,7 @@ impl Process {
             status  : ProcessStatus::RUNNABLE,
             pid     : PidType::allocate(),
             context : Context::new_with(core_stack),
-            root, trap_frame
+            memory, trap_frame
         };
     }
 
@@ -88,7 +90,11 @@ impl Process {
     }
 
     pub fn get_satp(&self) -> PageAddress {
-        return self.root.clone();
+        return self.memory.get_satp();
+    }
+
+    pub fn get_memory_area(&mut self) -> &mut MemoryArea {
+        return &mut self.memory;
     }
 
     /** Sleep and set the status as given. */

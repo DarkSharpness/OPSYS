@@ -78,9 +78,9 @@ impl PageAddress {
     }
 
     /** Load a program header from an ELF file. */
-    pub unsafe fn load_from_elf(&mut self, ph : ProgramHeader, elf : &ElfFile) {
+    pub unsafe fn load_from_elf(&mut self, ph : ProgramHeader, elf : &ElfFile) -> usize {
         let (start_va, mem_size) = get_header_range(ph);
-        if mem_size == 0 { return; }
+        if mem_size == 0 { return start_va; }
 
         let permission  = get_header_permission(ph.flags());
         let data        = get_header_data(ph, elf);
@@ -92,5 +92,6 @@ impl PageAddress {
             let remain = mem_size - data.len();
             self.add_range_zero(start_va + data.len(), remain, permission);
         }
+        return start_va + mem_size;
     }
 }
