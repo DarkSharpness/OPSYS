@@ -81,7 +81,7 @@ pub unsafe fn init_page_table() {
 
     // Set the kernel memory as read/write only.
     let mem_end = get_relative_page_num(get_mem_end()) >> 9;
-    for i in 1..mem_end {
+    for i in 2..mem_end {
         set_medium_identity(page, 2, i, PTEFlag::RW);
     }
     // Set the rest as invalid, of course.
@@ -90,15 +90,32 @@ pub unsafe fn init_page_table() {
     }
 
     // Set the kernel code in details.
-    let leaf = PageAddress::new_pagetable();
-    page[0].set_entry(leaf, PTEFlag::NEXT);
-    init_kernel_page(leaf);
+
+    let size = get_kernel_size();
+    const MIDDLE_PAGE_SIZE : usize = PAGE_SIZE << 9;
+    let mids = (size + MIDDLE_PAGE_SIZE - 1) / MIDDLE_PAGE_SIZE;
+    message!("Middle pages {}", mids);
+    for i in 0..mids {
+        page[i].set_entry(PageAddress::new_pagetable(), PTEFlag::NEXT);
+    }
+
+    init_kernel_page(page, mids);
 
     logging!("Page table initialized.");
     print_separator();
 }
 
-unsafe fn init_kernel_page(leaf : PageAddress) {
+unsafe fn get_kernel_size() -> usize {
+    extern "C" {
+        fn stext();
+        fn ekernel();
+    }
+    let size = ekernel as usize - stext as usize;
+    message!("Kernel size: {}", size);
+    size
+}
+
+unsafe fn init_kernel_page(leaf : PageAddress, middle_count : usize) {
     extern "C" {
         fn stext();
         fn etext();
@@ -115,35 +132,35 @@ unsafe fn init_kernel_page(leaf : PageAddress) {
     let text_finish = get_relative_page_num(etext as usize);
     message!("text_start: {}, text_finish: {}", text_start, text_finish);
     for i in text_start..text_finish {
-        set_normal_identity(leaf, 2, 0, i, PTEFlag::RX);
+        set_special_identity(leaf, 2, 0, i, PTEFlag::RX);
     }
 
     let rodata_start  = get_relative_page_num(srodata as usize);
     let rodata_finish = get_relative_page_num(erodata as usize);
     message!("rodata_start: {}, rodata_finish: {}", rodata_start, rodata_finish);
     for i in rodata_start..rodata_finish {
-        set_normal_identity(leaf, 2, 0, i, PTEFlag::RO);
+        set_special_identity(leaf, 2, 0, i, PTEFlag::RO);
     }
 
     let data_start  = get_relative_page_num(sdata as usize);
     let data_finish = get_relative_page_num(edata as usize);
     message!("data_start: {}, data_finish: {}", data_start, data_finish);
     for i in data_start..data_finish {
-        set_normal_identity(leaf, 2, 0, i, PTEFlag::RW);
+        set_special_identity(leaf, 2, 0, i, PTEFlag::RW);
     }
 
     let bss_start  = get_relative_page_num(sbss_real as usize);
     let bss_finish = get_relative_page_num(ebss as usize);
     message!("bss_start: {}, bss_finish: {}", bss_start, bss_finish);
     for i in bss_start..bss_finish {
-        set_normal_identity(leaf, 2, 0, i, PTEFlag::RW);
+        set_special_identity(leaf, 2, 0, i, PTEFlag::RW);
     }
 
     // The rest is reserved for buddy allocator.
     let finish = get_relative_page_num(ekernel as usize);
     message!("Kernel page finish at {}", finish);
-    for i in finish..512 {
-        set_normal_identity(leaf, 2, 0, i, PTEFlag::RW);
+    for i in finish..(middle_count << 9) {
+        set_special_identity(leaf, 2, 0, i, PTEFlag::RW);
     }
 
     // Set the address of zero page as read-only
@@ -151,13 +168,13 @@ unsafe fn init_kernel_page(leaf : PageAddress) {
     // fill the zero page with zero.
     // After that, we can set it as read-only.
     init_zero_page();
-    set_normal_identity(leaf, 2, 0, 1, PTEFlag::RO);
+    set_special_identity(leaf, 2, 0, 1, PTEFlag::RO);
 
     // Set the address of root page table as read/write-able
     // This is because our pagetable is placed at a special
     // position, within the text section (which will be marked as RX).
     // So, we need to change it to RW.
-    set_normal_identity(leaf, 2, 0, 2, PTEFlag::RW);
+    set_special_identity(leaf, 2, 0, 2, PTEFlag::RW);
 }
 
 impl PageTableEntry {
@@ -256,8 +273,12 @@ unsafe fn set_medium_identity(mut page : PageAddress, i : usize, j : usize, flag
     page[j].set_entry(PageAddress::new_medium(i as _, j as _), flag);
 }
 
-unsafe fn set_normal_identity(mut page : PageAddress, i : usize, j : usize, k : usize, flag : PTEFlag) {
-    page[k].set_entry(PageAddress::new_normal(i as _, j as _, k as _), flag);
+unsafe fn set_special_identity(page : PageAddress, i : usize, j : usize, k : usize, flag : PTEFlag) {
+    let (mut page, leaf) = page[k >> 9].get_entry();
+    assert!(leaf == PTEFlag::NEXT);
+    // let addr = PageAddress::new_normal(i as _, j as _, k as _);
+    // warning!("Special identity: {:#?}", addr.address());
+    page[k & 0x1FF].set_entry(PageAddress::new_normal(i as _, j as _, k as _), flag);
 }
 
 unsafe fn allocate_zero() -> PageAddress {
