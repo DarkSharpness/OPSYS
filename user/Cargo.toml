@@ -8,3 +8,4 @@ sys = { path = "../sys" }
 
 [profile.release]
 debug = true
+opt-level = 0
