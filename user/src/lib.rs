@@ -8,8 +8,13 @@ pub use syscall::*;
 
 #[panic_handler]
 fn panic_handler(info: &core::panic::PanicInfo) -> ! {
-    println!("Panic: {:?}", info);
-    loop {}
+    if let Some(location) = info.location() {
+        errorln!("Panic at {}:{}:{}", location.file(), location.line(), location.column());
+        errorln!("Panic message: {}", info.message().unwrap());
+    } else {
+        errorln!("Panic at unknown location");
+    }
+    unsafe { sys_exit(1) };
 }
 
 extern "C" { fn main() -> i32; }

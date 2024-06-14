@@ -10,5 +10,6 @@ fn main() -> i32 {
     let x = read_int().unwrap();
     let y = read_int().unwrap();
     println!("You input: {} {}", x, y);
-    return 0;
+    panic!("Exit");
+    // return 0;
 }
