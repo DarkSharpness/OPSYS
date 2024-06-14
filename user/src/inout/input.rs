@@ -1,81 +1,44 @@
 use crate::sys_read;
+use super::{buffer::StdBuf, STDIN};
 
-use super::STDIN;
-
-#[derive(PartialEq, Eq)]
-enum State {
-    Normal      = 0,
-    EndOfFile   = 1,
-    Error       = 2,
-}
-
-struct Stdin {
-    buffer : [u8; 256],
-    begin  : u8,
-    finish : u8,
-    state  : State,
-}
-
-impl Stdin {
-    pub const fn new() -> Self {
-        Self {
-            buffer  : [0; 256],
-            begin   : 0,
-            finish  : 0,
-            state   : State::Normal,
-        }
-    }
-
+impl StdBuf {
+    /** Read from the standard input. */
     fn read_buf(&mut self) {
-        let result = unsafe { sys_read(STDIN, &mut self.buffer) };
+        assert!(self.is_good());
+        let result = unsafe { sys_read(STDIN, self.get_mut_buffer()) };
         if result < 0 {
-            self.state = State::EndOfFile;
+            self.set_error();
         } else if result == 0 {
-            self.state = State::Error;
+            self.set_eof();
         } else { // Result > 0
-            self.begin = 0;
-            self.finish = result as _;
+            self.set_range(0, result as _);
         }
     }
 
-    fn is_good(&self) -> bool {
-        self.state == State::Normal
-    }
-
-    fn is_empty(&self) -> bool {
-        self.begin == self.finish
-    }
-
-    /** Whether there's no more possible white space. */
+    /** Whether there's more possible white space. */
     fn skip_whitespace(&mut self) -> bool {
-        let mut i = self.begin;
-        while i != self.finish && self.buffer[i as usize].is_ascii_whitespace() {
-            i += 1; 
+        let slice = self.as_slice();
+        for i in 0..slice.len() {
+            if !slice[i].is_ascii_whitespace() {
+                self.pop_n(i as _);
+                return false;
+            }
         }
-        self.begin = i;
-        return self.is_empty();
+        self.set_clear();
+        return true;
     }
 
+    /** Skip all white space. */
     fn skip_all_whitespace(&mut self) {
         while self.is_good() && self.skip_whitespace() {
             self.read_buf();
         }
     }
-
-    fn as_slice(&self) -> &[u8] {
-        &self.buffer[self.begin as usize..self.finish as usize]
-    }
-
-    fn pop(&mut self, n: u8) {
-        self.begin += n;
-    }
-
 }
 
-static mut STDIN_STREAM: Stdin = Stdin::new();
-
 #[allow(static_mut_refs)]
-fn get_stdin() -> &'static mut Stdin {
+fn get_stdin() -> &'static mut StdBuf {
+    static mut STDIN_STREAM: StdBuf = StdBuf::new();
     unsafe { &mut STDIN_STREAM }
 }
 
@@ -103,6 +66,6 @@ pub fn read_int() -> Option<isize> {
 
     if is_negative { result = -result; }
 
-    stdin.pop(i as _);
+    stdin.pop_n(i as _);
     return Some(result);
 }
