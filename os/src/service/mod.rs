@@ -39,6 +39,7 @@ impl Process {
         let handle = ServiceHandle::new(handle);
         let target = &mut *handle.to_process();
         target.set_response(args);
+        target.wake_up_from(ProcessStatus::SERVICE);
         self.yield_to_process(target);
     }
 }
