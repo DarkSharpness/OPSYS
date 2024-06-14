@@ -1,16 +1,19 @@
 use sys::syscall::*;
 
 pub struct IPCHandle(usize);
+
 pub enum Argument {
     Register(usize, usize),     // In 2 registers.
     Buffered(*mut u8, usize),   // In a user buffer.
 }
+
+pub type IPCKind = usize;
+
 pub enum IPCEnum {
     IPCFail(usize),                 // Buffer too small, give you the needed size.
-    IPCAsync(Argument),             // Asynchronous IPC.
-    IPCHandle(Argument, IPCHandle), // With argument and handle.
+    IPCAsync(Argument, IPCKind),             // Asynchronous IPC.
+    IPCHandle(Argument, IPCKind, IPCHandle), // With argument and handle.
 }
-
 pub struct AcceptPacket {
     args    : [usize; 3],
     kind    : usize,
@@ -60,7 +63,12 @@ pub fn sys_receive(args : [usize; 3], port : usize) -> AcceptPacket {
     };
 }
 
-pub fn sys_respond(args : [usize; 3], handle : IPCHandle) -> isize {
+pub fn sys_respond(args : Argument, handle : IPCHandle) -> isize {
+    let args = match args {
+        Argument::Register(a0, a1) => [a0, a1, ARGS_REGISTER],
+        Argument::Buffered(a0, a1) => [a0 as usize, a1, ARGS_BUFFERED],
+    };
+
     let mut ret : isize;
     unsafe {
         core::arch::asm!(
@@ -84,14 +92,14 @@ impl AcceptPacket {
 
         let argument = self.parse_argument();
         if self.result == 0 {
-            return IPCEnum::IPCAsync(argument);
+            return IPCEnum::IPCAsync(argument, self.kind);
         } else {
-            return IPCEnum::IPCHandle(argument, IPCHandle(self.result as usize));
+            return IPCEnum::IPCHandle(argument, self.kind, IPCHandle(self.result as usize));
         }
     }
 
     fn parse_argument(&self) -> Argument {
-        match self.kind {
+        match self.args[2] {
             ARGS_REGISTER => Argument::Register(self.args[0], self.args[1]),
             ARGS_BUFFERED => Argument::Buffered(self.args[0] as *mut u8, self.args[1]),
             _ => panic!("Unknown kind of argument."),
