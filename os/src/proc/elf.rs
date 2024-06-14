@@ -2,6 +2,8 @@ use xmas_elf::{program::{Flags, ProgramHeader}, ElfFile};
 
 use crate::{alloc::{PTEFlag, PageAddress, PAGE_SIZE}, get_zero_page};
 
+use super::Process;
+
 unsafe fn get_header_range(ph : ProgramHeader) -> (usize, usize) {
     let start_va    = ph.virtual_addr() as usize;
     let end_va      = (ph.virtual_addr() + ph.mem_size()) as usize;
@@ -94,5 +96,33 @@ impl PageAddress {
             self.add_range_zero(start_va + data.len(), remain, permission);
         }
         return start_va + mem_size;
+    }
+}
+
+impl Process {
+    pub unsafe fn init_from_elf(&mut self, data : &[u8]) {
+        let elf = xmas_elf::ElfFile::new(&data).unwrap();
+        let elf_header = elf.header;
+        let magic = elf_header.pt1.magic;
+        assert_eq!(magic, [0x7f, 0x45, 0x4c, 0x46], "invalid elf!");
+        let ph_count = elf_header.pt2.ph_count();
+        let mut max_vaddr = 0;
+        for i in 0..ph_count {
+            let ph = elf.program_header(i).unwrap();
+            if ph.get_type().unwrap() == xmas_elf::program::Type::Load {
+                // message!("{}", ph);
+                let vaddr_end = self.get_satp().load_from_elf(ph, &elf);
+                if vaddr_end > max_vaddr {
+                    max_vaddr = vaddr_end;
+                }
+            }
+        }
+
+        let memory = self.get_memory_area();
+
+        message!("Program end: {:#x}", memory.set_program_end(max_vaddr));
+
+        let trap_frame = self.get_trap_frame();
+        trap_frame.pc = elf.header.pt2.entry_point() as usize;
     }
 }

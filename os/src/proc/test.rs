@@ -16,47 +16,41 @@ impl PageAddress {
     }
 }
 
+#[repr(C)]
+struct Property {
+    start   : *const u8,    // inclusive
+    length  : usize,        // exclusive
+    name    : *const u8,    // name of the test
+    strlen  : usize,        // length of name
+}
+
+unsafe fn load_file(which : usize) -> &'static [u8] {
+    extern "C" {
+        static _num_app : usize;
+        static _app_meta: Property;
+    }
+
+    let num : usize = _num_app;
+    assert!(which < num, "Invalid test number!");
+    let meta = &*addr_of!(_app_meta).wrapping_add(which);
+    let name = meta.get_name();
+    warning!("Initing program: {}", name);
+
+    return meta.get_data();
+}
+
+
 impl Process {
     pub(super) unsafe fn new_test(which : usize) -> Process {
+        let data = load_file(which);
+
         let mut process = Process::init();
 
-        extern "C" { static _num_app : usize; }
+        // Initialize the text and data segment.
+        process.init_from_elf(data);
 
-        let num : usize = _num_app;
-        assert!(which < num, "Invalid test number!");
-
-        let addr = addr_of!(_num_app).wrapping_add(1);
-
-        let program_start   = *addr.wrapping_add(which * 2);
-        let program_finish  = *addr.wrapping_add(which * 2 + 1);
-        let program_length  = program_finish - program_start;
-
-        let data : &[u8] = core::slice::from_raw_parts(
-            program_start as *const u8, program_length);
-
-        let elf = xmas_elf::ElfFile::new(&data).unwrap();
-        let elf_header = elf.header;
-        let magic = elf_header.pt1.magic;
-        assert_eq!(magic, [0x7f, 0x45, 0x4c, 0x46], "invalid elf!");
-        let ph_count = elf_header.pt2.ph_count();
-        let mut max_vaddr = 0;
-        for i in 0..ph_count {
-            let ph = elf.program_header(i).unwrap();
-            if ph.get_type().unwrap() == xmas_elf::program::Type::Load {
-                // message!("{}", ph);
-                let vaddr_end = process.get_satp().load_from_elf(ph, &elf);
-                if vaddr_end > max_vaddr {
-                    max_vaddr = vaddr_end;
-                }
-            }
-        }
-
-        let memory = process.get_memory_area();
-
-        message!("Program end: {:#x}", memory.set_program_end(max_vaddr));
-
+        // Initialize the user stack.
         let trap_frame = process.get_trap_frame();
-        trap_frame.pc = elf.header.pt2.entry_point() as usize;
         trap_frame.sp = USER_STACK;
         process.get_satp().map_user_stack(1);
 
@@ -93,4 +87,13 @@ impl Process {
         return process;
     }
 */
+}
+
+impl Property {
+    pub unsafe fn get_name (&self) -> &str {
+        core::str::from_utf8(core::slice::from_raw_parts(self.name, self.strlen)).unwrap()
+    }
+    pub unsafe fn get_data (&self) -> &[u8] {
+        core::slice::from_raw_parts(self.start, self.length)
+    }
 }

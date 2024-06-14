@@ -26,25 +26,28 @@ fn insert_app_data() -> Result<()> {
         f,
         r#"
     .align 3
-    .section .data
+    .section .rodata
     .global _num_app
 _num_app:
-    .quad {}"#,
+    .quad {}
+    .align 3
+    .section .rodata
+    .global _app_meta
+_app_meta:"#,
         apps.len()
     )?;
 
-    for i in 0..apps.len() {
-        writeln!(f, r#"    .quad app_{}_start"#, i)?;
-        writeln!(f, r#"    .quad app_{}_end"#, i)?;
+    for (idx, app) in apps.iter().enumerate() {
+        writeln!(f, r#"    .quad app_{}_start"#, idx)?;
+        writeln!(f, r#"    .quad app_{}_end - app_{}_start"#, idx, idx)?;
+        writeln!(f, r#"    .quad .L_name_{}"#, idx)?;
+        writeln!(f, r#"    .quad {}"#, app.len())?;
     }
 
-    writeln!(
-        f,
-        r#"
-    .global _app_names
-_app_names:"#
-    )?;
-    for app in apps.iter() {
+    writeln!(f,"")?;
+
+    for (idx, app) in apps.iter().enumerate() {
+        writeln!(f, r#".L_name_{}:"#, idx)?;
         writeln!(f, r#"    .string "{}""#, app)?;
     }
 
@@ -53,7 +56,7 @@ _app_names:"#
         writeln!(
             f,
             r#"
-    .section .data
+    .section .rodata
     .global app_{0}_start
     .global app_{0}_end
     .align 3

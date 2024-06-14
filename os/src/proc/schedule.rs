@@ -31,12 +31,6 @@ impl CPU {
 
         return process;
     }
-
-    pub fn complete_process(&mut self, process : *mut Process) {
-        let manager = self.get_manager();
-        assert!(manager.running_process == process, "Invalid process to complete");
-        manager.running_process = core::ptr::null_mut();
-    }
 }
 
 impl ProcessManager {
@@ -81,7 +75,7 @@ pub unsafe fn init_process() {
 
     manager.init();
     manager.add_process(Process::new_test(0));
-    manager.add_process(Process::new_test(1));
+    manager.add_process(Process::new_test(2));
 }
 
 pub unsafe fn run_process() {
