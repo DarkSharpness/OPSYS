@@ -7,12 +7,9 @@ pub mod inout;
 pub use syscall::*;
 
 #[panic_handler]
-fn panic_handler(_: &core::panic::PanicInfo) -> ! {
-    unsafe {
-        let stdout = FileDescriptor::new(0);
-        sys_write(stdout, b"panic\n");
-        loop {}
-    }
+fn panic_handler(info: &core::panic::PanicInfo) -> ! {
+    println!("Panic: {:?}", info);
+    loop {}
 }
 
 extern "C" { fn main() -> i32; }
