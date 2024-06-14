@@ -76,12 +76,10 @@ unsafe fn try_mmap(root : PageAddress, virt : usize, __flag : PTEFlag) -> PageAd
     let (old, flag) = page.get_entry();
     if flag == PTEFlag::INVALID {
         let phys = PageAddress::new_pagetable();
-        warning!("Adding mapping success!");
         page.set_entry(phys, __flag);
         return phys;
     } else {
         assert!(flag != PTEFlag::NEXT, "Invalid mapping!");
-        warning!("Adding mapping failed!");
         page.add_flag(__flag);
         return old;
     }
