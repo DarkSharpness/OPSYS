@@ -20,5 +20,11 @@ gdb:
 	-ex 'target remote localhost:1234' \
 	-ex 'set riscv use-compressed-breakpoints yes' \
 
-asm:
+user:
+	cd ../user && make
+
+auto: user
+	make test
+
+_asm:
 	rust-objdump -S target/riscv64gc-unknown-none-elf/debug/os > os.tmp 2>/dev/null
