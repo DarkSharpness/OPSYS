@@ -14,6 +14,12 @@ pub const SYS_REQUEST   : usize   = 10;
 pub const SYS_RECEIVE   : usize   = 11;
 pub const SYS_RESPOND   : usize   = 12;
 
+pub const SYS_SBRK      : usize   = 13;
+pub const SYS_GETPID    : usize   = 14;
+pub const SYS_KILL      : usize   = 15;
+
+pub const SYS_EXEC_NO   : usize   = 100; // A debug use syscall
+
 pub const SYS_SHUTDOWN  : usize   = 114;
 
 pub const PM_PORT : usize = 0;
