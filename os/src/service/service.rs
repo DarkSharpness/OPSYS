@@ -39,6 +39,10 @@ impl Service {
         while self.waiting.is_empty() {
             process.sleep_as(ProcessStatus::SERVING);
             process.yield_to_scheduler();
+            // Something may be changed to the waiting
+            // but the compiler might optimize it out
+            // So we might tell the compiler that waiting has changed
+            core::hint::black_box(&self.waiting);
         }
 
         self.reset_servant(process);
