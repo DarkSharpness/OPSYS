@@ -90,15 +90,16 @@ impl Header {
         return ptr as *mut u8
     }
     pub fn get_next(&mut self) -> *mut Header {
-        let ptr = self.get_data();
-        return ptr.wrapping_add(self.get_size() as _) as *mut Header
+        let address = self as *mut Header as usize;
+        return (address + (self.get_size() as usize)) as *mut Header
     }
-
+    pub fn get_prev(&mut self) -> *mut Header {
+        let address = self as *mut Header as usize;
+        let prev_size = self.get_prev_size() as usize;
+        return (address - prev_size) as *mut Header
+    }
     pub unsafe fn try_split(&mut self, size : usize) -> (*mut u8, Option<&mut Header>) {
-        let size     = size as u32;
-        let capacity = self.get_size();
-        assert!(size <= capacity, "Something goes wrong");
-        return (self.get_data(), None);
+        return self.try_split_impl(size);
     }
 
     #[allow(unused)]
@@ -123,5 +124,4 @@ impl Header {
 
         return (self.get_data(), Some(&mut *next_header));
     }
-
 }

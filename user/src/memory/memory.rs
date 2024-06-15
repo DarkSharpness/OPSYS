@@ -21,7 +21,7 @@ unsafe fn enlarge(size : usize) {
 unsafe fn try_find(heap : &mut Heap, size : usize) -> *mut Header {
     let header = heap.first_fit(size);
     if header.is_null() {
-        enlarge(size + size_of::<Header>());
+        enlarge(size);
         let header = heap.first_fit(size);
         assert!(!header.is_null(), "Out of memory");
         return header;
@@ -31,15 +31,13 @@ unsafe fn try_find(heap : &mut Heap, size : usize) -> *mut Header {
 }
 
 pub unsafe fn malloc(size : usize) -> *mut u8 {
-    if !INIT.load(core::sync::atomic::Ordering::Relaxed) {
+    if !INIT.fetch_or(true, core::sync::atomic::Ordering::Relaxed) {
         malloc_init();
-        INIT.store(true, core::sync::atomic::Ordering::Relaxed);
     }
 
-    let size = max((size + 7) & !7, size_of::<Node>());
+    let size = max((size + size_of::<Header>() + 7) & !7, size_of::<Node>());
     let heap = get_heap();
     let header = try_find(heap, size);
-    let size = (*header).get_size() as usize;
 
     let (data, rest) = (*header).try_split(size);
     match rest {
@@ -50,9 +48,13 @@ pub unsafe fn malloc(size : usize) -> *mut u8 {
     return data;
 }
 
+unsafe fn check_initialized() {
+    assert!(INIT.load(core::sync::atomic::Ordering::Relaxed), "Malloc not initialized");
+}
+
 pub unsafe fn free(ptr : *mut u8) {
     if ptr.is_null() { return; }
-    assert!(INIT.load(core::sync::atomic::Ordering::Relaxed), "Malloc not initialized");
+    check_initialized();
     assert!(ptr as usize % 8 == 0, "Misaligned pointer");
     let heap = get_heap();
     let header = ptr as *mut Header;
@@ -61,7 +63,14 @@ pub unsafe fn free(ptr : *mut u8) {
 
 pub unsafe fn malloc_usable_size(ptr : *mut u8) -> usize {
     if ptr.is_null() { return 0; }
+    check_initialized();
     assert!(ptr as usize % 8 == 0, "Misaligned pointer");
     let header = ptr.sub(8) as *mut Header;
     return (*header).get_size() as usize;
+}
+
+pub unsafe fn malloc_dump() {
+    check_initialized();
+    let heap = get_heap();
+    heap.dump_and_check();
 }
