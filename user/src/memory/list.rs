@@ -1,7 +1,5 @@
 use core::ptr::null_mut;
 
-use crate::println;
-
 pub struct Node {
     prev : *mut Node,
     next : *mut Node,
@@ -110,8 +108,6 @@ impl Header {
         if rest <= size || rest <= 32 {
             return (self.get_data(), None);
         }
-
-        println!("Splitting: {} -> {} + {}", capacity, size, rest);
 
         // From [capacity] to [size] to [rest]
         let next_header = self.get_next();
