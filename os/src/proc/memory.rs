@@ -40,8 +40,6 @@ impl MemoryArea {
             for page in (old_page + 1)..=new_page {
                 root.try_umap(page * PAGE_SIZE, PTEFlag::RW);
             }
-
-            todo!("Map between {:#x} and {:#x}", old_break, new_break);            
         } else if increment < 0 {
             let new_break = max(new_break, self.program_end);
             self.break_start = new_break;
@@ -52,8 +50,6 @@ impl MemoryArea {
             for page in (new_page + 1)..=old_page {
                 root.try_unumap(page * PAGE_SIZE);
             }
-
-            todo!("Unmap between {:#x} and {:#x}", new_break, old_break);
         }
         return old_break;
     }
