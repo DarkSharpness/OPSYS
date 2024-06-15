@@ -250,11 +250,3 @@ switch_context:
 
     ret
 switch_context_end:
-
-    .globl fault_test
-fault_test:
-    li a0, 0
-    li a2, 0
-    div a0, a2, a1  # Divide by zero
-    ld a1, 1(a2)    # Misaligned access
-    j fault_test
