@@ -119,6 +119,5 @@ impl Process {
         self.get_trap_frame().free();
 
         let _ = *self; // Drop the process.
-        todo!("Destroy the process.");
     }
 }

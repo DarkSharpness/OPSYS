@@ -227,8 +227,8 @@ impl PageAddress {
     pub fn new_rand_page() -> Self { unsafe { allocate_page() } }
     /** Return a page with given physical address entry. */
     pub const fn new_usize(num : usize) -> Self { PageAddress(num >> 12) }
-    /** Free this page. */
-    pub unsafe fn free(self) {
+    /** Free only this page. */
+    pub unsafe fn free_this(self) {
         BuddyAllocator::deallocate_page(self.address());
     }
     fn new_ptr(num : *mut u8) -> Self {

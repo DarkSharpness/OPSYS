@@ -62,6 +62,10 @@ impl PageAddress {
         let leaf = &mut addr[ppn2];
         return Some(PageIterator{ huge, next, leaf });
     }
+
+    pub unsafe fn free(self) {
+        return free_impl(self);
+    }
 }
 
 impl PageIterator {
@@ -211,4 +215,39 @@ unsafe fn copy_impl(dst : PageAddress, src : PageAddress) {
             }
         }
     }
+}
+
+unsafe fn free_impl(mut root : PageAddress) {
+    for i in 0..512 {
+        let current = &mut root[i];
+        let (mut addr, flag) = current.get_entry();
+        if flag == PTEFlag::INVALID { continue; }
+        assert!(flag == PTEFlag::NEXT, "Invalid page table mapping!");
+        for j in 0..512 {
+            let current = &mut addr[j];
+            let (mut addr, flag) = current.get_entry();
+            if flag == PTEFlag::INVALID { continue; }
+            assert!(flag == PTEFlag::NEXT, "Invalid page table mapping!");
+            for k in 0..512 {
+                let current = &mut addr[k];
+                let (addr, flag) = current.get_entry();
+                if flag == PTEFlag::INVALID { continue; }
+                match flag.get_owner() {
+                    PTEOwner::Kernel => {
+                        /* Kernel should have done it previously  */
+                    },
+                    PTEOwner::Process => {
+                        addr.free_this(); // Free only one page.
+                        current.reset();
+                    },
+                    _ => todo!("Implement support for other owners."),
+                }
+            }
+            addr.free_this();
+            current.reset();
+        }
+        addr.free_this();
+        current.reset();
+    }
+    root.free_this();
 }

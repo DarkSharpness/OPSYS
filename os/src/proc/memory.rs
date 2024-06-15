@@ -59,6 +59,7 @@ impl MemoryArea {
     }
 
     pub unsafe fn free(&self) {
-        todo!("Free all memory")
+        let root = self.get_satp();
+        root.free();
     }
 }

@@ -115,7 +115,7 @@ unsafe fn try_unumap(mut root : PageAddress, virt : usize) -> bool {
         return false;
     }
 
-    addr.free();
+    addr.free_this();
     page.reset();
 
     return true;

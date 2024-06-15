@@ -30,23 +30,24 @@ impl PageAddress {
                 flag.debug(); 
                 continue;
             }
+            warning!("- Huge page {:p}", addr.address());
             for j in 0..512 {
                 let base = base | j << 9;
                 let (addr, flag) = addr[j].get_entry();
                 if flag == PTEFlag::INVALID { continue; }
                 if flag != PTEFlag::NEXT {
-                    message_inline!("Mapping 2MiB {:<12p} -> {:<10p} Flag = ",
+                    message_inline!("  - Mapping 2MiB {:<12p} -> {:<10p} Flag = ",
                         to_virtual(base), addr.address());
                     flag.debug();
                     continue;
                 }
-                warning!("Here {:p}", addr.address());
+                warning!("  - Large page {:p}", addr.address());
                 for k in 0..512 {
                     let base = base | k;
                     let (addr, flag) = addr[k].get_entry();
                     if flag == PTEFlag::INVALID { continue; }
                     assert!(flag != PTEFlag::NEXT, "Invalid page table mapping!");
-                    message_inline!("Mapping 4KiB {:<12p} -> {:<10p} Flag = ",
+                    message_inline!("    - Mapping 4KiB {:<12p} -> {:<10p} Flag = ",
                         to_virtual(base), addr.address());
                     flag.debug();
                 }
