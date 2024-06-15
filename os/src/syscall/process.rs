@@ -1,4 +1,4 @@
-use crate::{alloc::PTEFlag, cpu::CPU, proc::Process, service::Argument};
+use crate::{alloc::PTEFlag, cpu::CPU, proc::{current_cpu, Process}, service::Argument};
 
 impl Process {
     pub unsafe fn address_check(&mut self, args : [usize; 2], permission : PTEFlag) {
@@ -12,13 +12,13 @@ impl Process {
 
         /* Request to make a new child at children manager. */
         use sys::syscall::*;
-        let child_pid = child.get_pid().raw_bits();
+        let child_pid = child.get_pid().bits();
         self.service_request(Argument::Register(child_pid, 0), PM_FORK, PM_PORT);
 
         /* Return the arguments */
         let trap_frame = self.get_trap_frame();
         child.get_trap_frame().copy_from(trap_frame);
-        trap_frame.a0 = child.get_pid().raw_bits();
+        trap_frame.a0 = child.get_pid().bits();
         child.get_trap_frame().a0 = 0;
 
         /* Copy the page take to children. */
@@ -29,7 +29,9 @@ impl Process {
     pub unsafe fn exit(&mut self, status: usize) -> ! {
         use sys::syscall::*;
         self.service_request(Argument::Register(status, 0), PM_EXIT, PM_PORT);
-        todo!("Implement exit {:?}", status);
+        current_cpu().get_manager().remove_process(self);
+        self.yield_to_scheduler();
+        unreachable!("unreachable");
     }
 
     unsafe fn wait(&mut self, pid : usize) {
@@ -45,7 +47,7 @@ impl CPU {
 
     pub(super) unsafe fn sys_fork(&mut self) {
         let process     = &mut *self.get_process();
-        self.get_manager().add_process(process.fork());
+        self.get_manager().insert_process(process.fork());
     }
 
     pub(super) unsafe fn sys_exit(&mut self) -> ! {

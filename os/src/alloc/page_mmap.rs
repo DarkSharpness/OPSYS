@@ -5,6 +5,10 @@ impl PageAddress {
     pub unsafe fn smap(self, virt : usize, phys : PageAddress, flag : PTEFlag) {
         return mmap(self, virt, phys, flag | PTEOwner::Kernel.to_flag());
     }
+    /** Try to add a supervisor mapping. If existed, throw. */
+    pub unsafe fn new_smap(self, virt : usize, flag : PTEFlag) -> PageAddress {
+        return new_mmap(self, virt, flag | PTEOwner::Kernel.to_flag());
+    }
     /** Add a user-defined mapping. */
     pub unsafe fn umap(self, virt : usize, phys : PageAddress, flag : PTEFlag) {
         return mmap(self, virt, phys, flag | PTEOwner::Process.to_flag() | U);

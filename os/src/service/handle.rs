@@ -20,7 +20,7 @@ use sys::syscall::{pid_to_handle,handle_to_pid};
 
 unsafe fn process_to_handle(process : *mut Process) -> ServiceHandle {
     let pid = &(*process).get_pid();
-    return ServiceHandle::new(pid_to_handle(pid.raw_bits()));
+    return ServiceHandle::new(pid_to_handle(pid.bits()));
 }
 
 unsafe fn handle_to_process(handle : ServiceHandle) -> *mut Process {

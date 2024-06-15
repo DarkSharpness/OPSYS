@@ -39,6 +39,14 @@ unsafe impl GlobalAlloc for Dummy {
 #[global_allocator]
 static GLOBAL_ALLOCATOR : Dummy = Dummy;
 
+pub fn allocate_one_page() -> *mut u8 {
+    unsafe { BuddyAllocator::allocate_page() }
+}
+
+pub fn deallocate_one_page(ptr : *mut u8) {
+    unsafe { BuddyAllocator::deallocate_page(ptr) }
+}
+
 /**
  * Call this function to initialize the buddy system.
  * It will automatically set up the page table.

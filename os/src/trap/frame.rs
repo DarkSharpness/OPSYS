@@ -1,6 +1,6 @@
 use riscv::register::satp;
 
-use crate::alloc::{PTEFlag, PageAddress, PAGE_SIZE};
+use crate::alloc::{allocate_one_page, deallocate_one_page, PTEFlag, PageAddress, PAGE_SIZE};
 
 use super::{user_trap, TRAP_FRAME};
 
@@ -49,23 +49,26 @@ pub struct TrapFrame {
 }
 
 impl TrapFrame {
-    // Copy only 32 registers
+    /** Copy only 32 registers from src to self. */
     pub unsafe fn copy_from(&self, src: &TrapFrame) {
         let dst = self as *const TrapFrame as *mut usize;
         let src = src as *const TrapFrame as *const usize;
         dst.copy_from(src, 32);
+    }
+    pub unsafe fn free(&self) {
+        let kernel_stack = self.kernel_stack - PAGE_SIZE;
+        deallocate_one_page(kernel_stack as _);
     }
 }
 
 impl PageAddress {
     /** Create a trap frame with all the private members initialized. */
     pub unsafe fn map_trap_frame(&self) -> (&'static mut TrapFrame, usize) {
-        let trap_frame = PageAddress::new_rand_page();
-        self.smap(TRAP_FRAME, trap_frame, PTEFlag::RW);
+        let trap_frame = self.new_smap(TRAP_FRAME, PTEFlag::RW);
         let trap_frame = &mut *(trap_frame.address() as *mut TrapFrame);
 
-        let kernel_stack = PageAddress::new_rand_page();
-        let kernel_stack_top = kernel_stack.address() as usize + PAGE_SIZE;
+        let kernel_stack = allocate_one_page();
+        let kernel_stack_top = kernel_stack as usize + PAGE_SIZE;
 
         trap_frame.thread_number = 0;
         trap_frame.kernel_stack = kernel_stack_top;

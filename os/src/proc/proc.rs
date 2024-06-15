@@ -19,6 +19,7 @@ pub enum ProcessStatus {
 pub struct Process {
     pid         : PidType,          // process id
     status      : ProcessStatus,    // process status
+    isalive     : bool,             // is the process alive
     memory      : MemoryArea,       // memory area
     trap_frame  : * mut TrapFrame,  // trap frame
     context     : Context,          // current context
@@ -38,7 +39,8 @@ impl Process {
         // Complete the resource initialization.
         return Process {
             status  : ProcessStatus::RUNNABLE,
-            pid     : PidType::allocate(),
+            pid     : PidType::new(0), // As a placeholder.
+            isalive : true,
             context : Context::new_with(kernel_stack),
             response : None,
             memory, trap_frame
@@ -52,6 +54,10 @@ impl Process {
 
     pub unsafe fn get_trap_frame(&self) -> &mut TrapFrame {
         return &mut *self.trap_frame;
+    }
+
+    pub(super) fn set_pid(&mut self, pid : PidType) {
+        self.pid = pid;
     }
 
     pub fn get_pid(&self) -> PidType {
@@ -96,5 +102,23 @@ impl Process {
 
     pub fn get_response(&mut self) -> Option<Argument> {
         return self.response.take();
+    }
+
+    pub fn is_alive(&self) -> bool {
+        return self.isalive;
+    }
+
+    pub fn set_dead(&mut self) {
+        self.isalive = false;
+    }
+
+    pub unsafe fn destroy(&mut self) {
+        PidType::unregister(self);
+
+        self.get_memory_area().free();
+        self.get_trap_frame().free();
+
+        let _ = *self; // Drop the process.
+        todo!("Destroy the process.");
     }
 }

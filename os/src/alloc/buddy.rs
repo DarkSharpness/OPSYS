@@ -154,6 +154,7 @@ impl BuddyAllocator {
     }
     /** Deallocate exactly one page.  */
     pub unsafe fn deallocate_page(ptr : *mut u8) {
+        assert!(ptr as usize % PAGE_SIZE == 0, "Invalid page pointer!");
         return try_dealloc(get_index(ptr, BuddyAllocator::PAGE_RANK), BuddyAllocator::PAGE_RANK);
     }
 

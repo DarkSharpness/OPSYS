@@ -57,4 +57,8 @@ impl MemoryArea {
         }
         return old_break;
     }
+
+    pub unsafe fn free(&self) {
+        todo!("Free all memory")
+    }
 }

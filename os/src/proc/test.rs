@@ -9,9 +9,8 @@ const USER_STACK : usize = 1 << 38;
 impl PageAddress {
     unsafe fn map_user_stack(self, cnt : usize) {
         for i in 0..cnt {
-            let stack_page = PageAddress::new_rand_page();
             let user_stack = USER_STACK - (i + 1) * PAGE_SIZE as usize;
-            self.umap(user_stack, stack_page, PTEFlag::RW);
+            self.new_umap(user_stack, PTEFlag::RW);
         }
     }
 }
