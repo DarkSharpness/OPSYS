@@ -42,8 +42,8 @@ fn handle_fork(argument : Argument, handle: IPCHandle) {
         let parent = get_node(parent_pid);
         let child  = get_node(child_pid);
         (*parent).add_child(child);
-        sys_respond(Argument::Register(0, 0), handle);
     }
+    sys_respond(Argument::Register(0, 0), handle);
 }
 
 fn handle_exit(argument : Argument, handle: IPCHandle) {
@@ -59,6 +59,7 @@ fn handle_exit(argument : Argument, handle: IPCHandle) {
 
     let node = unsafe { get_node(pid) };
     node.exit(exit_code);
+    sys_respond(Argument::Register(0, 0), handle);
 }
 
 fn handle_wait(argument : Argument, handle: IPCHandle) {

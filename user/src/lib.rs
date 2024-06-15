@@ -3,8 +3,10 @@
 #![feature(panic_info_message)]
 
 mod syscall;
+mod memory;
 pub mod inout;
 pub use syscall::*;
+pub use memory::*;
 
 #[panic_handler]
 fn panic_handler(info: &core::panic::PanicInfo) -> ! {

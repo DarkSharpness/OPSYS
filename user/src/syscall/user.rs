@@ -95,3 +95,11 @@ impl FileDescriptor {
         return FileDescriptor(fd);
     }
 }
+
+pub unsafe fn sys_getpid() -> isize {
+    syscall0(SYS_GETPID)
+}
+
+pub unsafe fn sys_sbrk(increment : isize) -> *mut u8 {
+    syscall1(SYS_SBRK, [increment as usize]) as _
+}
