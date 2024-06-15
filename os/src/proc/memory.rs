@@ -1,6 +1,6 @@
 use core::cmp::max;
 
-use crate::alloc::{PageAddress, PAGE_SIZE};
+use crate::alloc::{PTEFlag, PageAddress, PAGE_SIZE};
 
 pub struct MemoryArea {
     root        : PageAddress,  // root page table
@@ -28,19 +28,33 @@ impl MemoryArea {
         return end;
     }
 
-    pub fn sbrk(&mut self, increment: isize) -> usize {
+    pub unsafe fn sbrk(&mut self, increment: isize) -> usize {
         let old_break = self.break_start;
+        let new_break = old_break + increment as usize;
         if increment > 0 {
-            let new_break = old_break + increment as usize;
             self.break_start = new_break;
+
+            let root = self.get_satp();
+            let old_page = (old_break - 1) / PAGE_SIZE;
+            let new_page = (new_break - 1) / PAGE_SIZE;
+            for page in (old_page + 1)..=new_page {
+                root.try_umap(page * PAGE_SIZE, PTEFlag::RW);
+            }
+
             todo!("Map between {:#x} and {:#x}", old_break, new_break);            
         } else if increment < 0 {
-            let new_break = max(old_break as isize + increment, self.program_end as isize) as usize;
+            let new_break = max(new_break, self.program_end);
             self.break_start = new_break;
-            todo!("Unmap between {:#x} and {:#x}", new_break, old_break);
-        } else {
-            return old_break;
-        }
-    }
 
+            let root = self.get_satp();
+            let old_page = (old_break - 1) / PAGE_SIZE;
+            let new_page = (new_break - 1) / PAGE_SIZE;
+            for page in (new_page + 1)..=old_page {
+                root.try_unumap(page * PAGE_SIZE);
+            }
+
+            todo!("Unmap between {:#x} and {:#x}", new_break, old_break);
+        }
+        return old_break;
+    }
 }

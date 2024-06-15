@@ -191,6 +191,9 @@ impl PageTableEntry {
     pub fn add_flag(&mut self, flag : PTEFlag) {
         self.0 |= flag.bits();
     }
+    pub fn reset(&mut self) {
+        self.0 = 0;
+    }
 }
 
 impl PTEFlag {

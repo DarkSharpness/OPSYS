@@ -1,4 +1,5 @@
 mod fs;
+mod mm;
 mod ipc;
 mod process;
 
@@ -30,6 +31,7 @@ impl CPU {
             SYS_FORK        => self.sys_fork(),
             SYS_EXIT        => self.sys_exit(),
             SYS_WAIT        => self.sys_wait(),
+            SYS_SBRK        => self.sys_sbrk(),
             _ => unknown_syscall(index, trap_frame),
         }
     }

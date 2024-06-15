@@ -17,10 +17,13 @@ impl PageAddress {
     pub unsafe fn try_umap(self, virt : usize, flag : PTEFlag) -> PageAddress {
         return try_mmap(self, virt, flag | PTEOwner::Process.to_flag() | U);
     }
+    pub unsafe fn try_unumap(self, virt : usize) -> bool {
+        return try_unumap(self, virt);
+    }
 }
 
 #[inline(never)]
-unsafe fn mmap_until_root(
+unsafe fn mmap_until_leaf(
     mut root : PageAddress, virt : usize, __flag : PTEFlag) -> *mut PageTableEntry {
     let virt =  virt >> 12;
     let ppn0 = (virt >> 18) & 0x1FF;
@@ -52,17 +55,15 @@ unsafe fn mmap_until_root(
     return &mut root[ppn2];
 }
 
-#[inline(always)]
 unsafe fn mmap(root : PageAddress, virt : usize, phys : PageAddress, __flag : PTEFlag) {
-    let page = &mut *mmap_until_root(root, virt, __flag);
+    let page = &mut *mmap_until_leaf(root, virt, __flag);
     let (_, flag) = page.get_entry();
     assert!(flag == PTEFlag::INVALID, "Mapping existed!");
     page.set_entry(phys, __flag);
 }
 
-#[inline(always)]
 unsafe fn new_mmap(root : PageAddress, virt : usize, __flag : PTEFlag) -> PageAddress {
-    let page = &mut *mmap_until_root(root, virt, __flag);
+    let page = &mut *mmap_until_leaf(root, virt, __flag);
     let (_, flag) = page.get_entry();
     assert!(flag == PTEFlag::INVALID, "Mapping existed!");
     let new = PageAddress::new_pagetable();
@@ -70,9 +71,8 @@ unsafe fn new_mmap(root : PageAddress, virt : usize, __flag : PTEFlag) -> PageAd
     return new;
 }
 
-#[inline(always)]
 unsafe fn try_mmap(root : PageAddress, virt : usize, __flag : PTEFlag) -> PageAddress {
-    let page = &mut *mmap_until_root(root, virt, __flag);
+    let page = &mut *mmap_until_leaf(root, virt, __flag);
     let (old, flag) = page.get_entry();
     if flag == PTEFlag::INVALID {
         let phys = PageAddress::new_pagetable();
@@ -83,4 +83,36 @@ unsafe fn try_mmap(root : PageAddress, virt : usize, __flag : PTEFlag) -> PageAd
         page.add_flag(__flag);
         return old;
     }
+}
+
+unsafe fn try_unumap(mut root : PageAddress, virt : usize) -> bool {
+    let virt = virt >> 12;
+    let ppn0 = (virt >> 18) & 0x1FF;
+    let ppn1 = (virt >> 9 ) & 0x1FF;
+    let ppn2 = (virt >> 0 ) & 0x1FF;
+
+    let page = &mut root[ppn0];
+    let (addr, flag) = page.get_entry();
+    if flag != PTEFlag::NEXT {
+        return false;
+    } 
+
+    root = addr;
+    let page = &mut root[ppn1];
+    let (addr, flag) = page.get_entry();
+    if flag != PTEFlag::NEXT {
+        return false;
+    }
+
+    root = addr;
+    let page = &mut root[ppn2];
+    let (addr, flag) = page.get_entry();
+    if flag == PTEFlag::INVALID || flag == PTEFlag::NEXT {
+        return false;
+    }
+
+    addr.free();
+    page.reset();
+
+    return true;
 }
