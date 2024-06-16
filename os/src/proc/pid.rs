@@ -1,17 +1,26 @@
-use core::{ptr::null_mut, sync::atomic::AtomicUsize};
+use core::sync::atomic::AtomicUsize;
 extern crate alloc;
-use alloc::vec::Vec;
+use alloc::collections::BTreeMap;
 
 use super::Process;
 
 #[derive(Clone)]
 pub struct PidType(usize);
 
-static mut PID_MAP  : Vec<* mut Process> = Vec::new();
+static mut PID_MAP : BTreeMap<usize, * mut Process> = BTreeMap::new();
 
 impl PidType {
-    pub fn new(pid : usize) -> Self { Self(pid) }
-    pub fn bits(&self) -> usize { self.0 }
+    pub const fn new(pid : usize) -> Self {
+        assert!(pid != 0);
+        PidType(pid)
+    }
+    pub const fn bits(&self) -> usize {
+        assert!(self.0 != 0);
+        self.0
+    }
+    pub fn allocate() -> Self {
+        unsafe { allocate() }
+    }
     pub unsafe fn to_process(&self) -> * mut Process {
         let process = pid_to_process(self);
         assert!(!process.is_null());
@@ -33,17 +42,17 @@ unsafe fn allocate() -> PidType {
 
 /** Register the process to the pid map. */
 unsafe fn register_process(process : &mut Process) {
-    process.set_pid(allocate());
-    PID_MAP.push(process);
-    assert!(PID_MAP.len() == process.get_pid().bits());
+    let result = PID_MAP.insert(process.get_pid().bits(), process);
+    assert!(result.is_none(), "PID {} is already registered", process.get_pid().bits());
 }
 
 /** Unregister the process from the pid map. */
 unsafe fn unregister_process(process : &mut Process) {
-    PID_MAP[process.get_pid().bits() - 1] = null_mut();
+    let result = PID_MAP.remove(&process.get_pid().bits());
+    assert!(result.is_some(), "PID {} is not registered", process.get_pid().bits());
 }
 
 /** Get the process from the pid map. */
 unsafe fn pid_to_process(pid : &PidType) -> * mut Process {
-    return PID_MAP[pid.bits() - 1];
+    return *PID_MAP.get(&pid.bits()).unwrap();
 }

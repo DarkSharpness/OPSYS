@@ -37,7 +37,7 @@ impl Process {
         // Complete the resource initialization.
         return Process {
             status  : ProcessStatus::RUNNABLE,
-            pid     : PidType::new(0), // As a placeholder.
+            pid     : PidType::allocate(),
             isalive : true,
             context : Context::new_with(kernel_stack),
             response : None,
@@ -52,10 +52,6 @@ impl Process {
 
     pub unsafe fn get_trap_frame(&self) -> &mut TrapFrame {
         return &mut *self.trap_frame;
-    }
-
-    pub(super) fn set_pid(&mut self, pid : PidType) {
-        self.pid = pid;
     }
 
     pub fn get_pid(&self) -> PidType {
@@ -99,6 +95,7 @@ impl Process {
     }
 
     pub fn get_response(&mut self) -> Option<Argument> {
+        core::hint::black_box(&self.response);
         return self.response.take();
     }
 

@@ -30,6 +30,7 @@ impl Process {
         /* Return the arguments */
         let trap_frame = self.get_trap_frame();
         child.get_trap_frame().copy_from(trap_frame);
+
         trap_frame.a0 = child.get_pid().bits();
         child.get_trap_frame().a0 = 0;
 
@@ -49,9 +50,24 @@ impl Process {
     unsafe fn wait(&mut self, pid : usize) {
         use sys::syscall::*;
         self.service_request(Argument::Register(pid, 0), PM_WAIT, PM_PORT);
+        match self.get_response() {
+            Some(arugment) => {
+                match arugment.get_register() {
+                    Some((pid, status)) => {
+                        let trap_frame = self.get_trap_frame();
+                        trap_frame.a0 = pid;
+                        trap_frame.a1 = status;
+                        return;
+                    },
+                    None => {}
+                }
+            },
+            None => {},
+        }
+        panic!("invalid response from PM_WAIT");
     }
 
-    pub unsafe fn handle_fatal_error(&mut self, msg: &str) {
+    pub unsafe fn handle_fatal_error(&mut self, msg: &str) -> ! {
         warning!("process {} fatal error: {}", self.get_pid().bits(), msg);
         self.exit(1);
     }

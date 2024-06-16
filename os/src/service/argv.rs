@@ -33,4 +33,12 @@ impl Argument {
             _ => panic!("Invalid argument for syscall"),
         }
     }
+
+    pub unsafe fn get_register(&self) -> Option <(usize, usize)> {
+        match self {
+            Self::Register(a, b) => Some((*a, *b)),
+            _ => None,
+        }
+    }
+
 }
