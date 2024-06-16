@@ -116,13 +116,12 @@ impl Node {
 
     fn dump(&self, indent : usize, parent : *const Node) {
         assert!((self.parent as *const Node) == parent);
-        print!("- ");
-        for _ in 0..indent { print!("    "); }
+        for _ in 0..indent { print!("  "); }
         if self.is_dead() {
             assert!(self.child.capacity() == 0);
             println!("[x] pid: {}, exit_code: {}", self.pid, self.exit_code);
         } else {
-            println!("[ ] pid: {}", self.pid);
+            println!("[*] pid: {}", self.pid);
             let this = self as *const Node;
             for i in 0..self.child.len() {
                 self.get_child(i).dump(indent + 1, this);
@@ -188,8 +187,9 @@ pub fn pm_dump() {
         }
     }
     println!("== Dumping all nodes ==");
+    println!("[*] _dummy_");
     for node in noroot {
-        unsafe { (*node).dump(0, null()); }
+        unsafe { (*node).dump(1, null()); }
     }
     println!("==    End of dump    ==");
 }
