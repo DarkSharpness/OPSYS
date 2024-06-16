@@ -24,5 +24,5 @@ pub unsafe fn init_process() {
     let manager = current_cpu().get_manager();
 
     manager.insert_process(Process::new_test(0));
-    manager.insert_process(Process::new_test(2));
+    manager.insert_process(Process::new_test(1));
 }

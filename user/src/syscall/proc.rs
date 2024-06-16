@@ -1,7 +1,7 @@
 use sys::syscall::*;
 use super::call::*;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct PidType(usize);
 
 pub enum WaitResult {
@@ -37,7 +37,7 @@ pub unsafe fn sys_fork() -> ForkResult {
     } else if ret == 0{
         ForkResult::Child
     } else {
-        ForkResult::Parent(PidType::new(ret as usize))
+        ForkResult::Parent(PidType::new(ret as _))
     }
 }
 
@@ -48,12 +48,14 @@ pub unsafe fn sys_wait() -> WaitResult {
     } else if ret0 == 0 {
         WaitResult::None
     } else {
-        WaitResult::Some(PidType::new(ret0 as usize), ret1 as i32)
+        WaitResult::Some(PidType::new(ret0 as _), ret1 as i32)
     }
 }
 
-pub unsafe fn sys_exec(path : *const u8, argv : *const *const u8, envp : *const *const u8) -> isize {
-    syscall3(SYS_EXEC, [path as usize, argv as usize, envp as usize])
+pub unsafe fn sys_exec(name : &[u8], argv : *const *const u8) -> isize {
+    let buf = name.as_ptr();
+    let len = name.len();
+    syscall3(SYS_EXEC, [buf as _, len, argv as _])
 }
 
 pub unsafe fn sys_shutdown() -> ! {

@@ -1,5 +1,7 @@
 use crate::sys_read;
 use super::{buffer::StdBuf, STDIN};
+extern crate alloc;
+use alloc::string::String;
 
 impl StdBuf {
     /** Read from the standard input. */
@@ -68,4 +70,30 @@ pub fn read_int() -> Option<isize> {
 
     stdin.pop_n(i as _);
     return Some(result);
+}
+
+pub fn read_raw_char() -> Option<u8> {
+    let stdin = get_stdin();
+    if !stdin.is_good() { return None; }
+    let slice = stdin.as_slice();
+    if slice.len() == 0 { stdin.read_buf(); }
+    let slice = stdin.as_slice();
+    if slice.len() == 0 { return None; }
+    let result = slice[0];
+    stdin.pop_n(1);
+    return Some(result);
+}
+
+pub fn read_line(string : &mut String) -> bool {
+    string.clear();
+    loop {
+        let result = read_raw_char();
+        match result {
+            Some(c) => {
+                if c == b'\n' { return true; }
+                string.push(c as char);
+            },
+            None => return false,
+        }
+    }
 }

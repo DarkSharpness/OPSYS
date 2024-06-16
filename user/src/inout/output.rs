@@ -81,3 +81,7 @@ impl Write for StdBuf {
         Ok(())
     }
 }
+
+pub fn flush_stdout() {
+    get_stdout().write_buf();
+}
