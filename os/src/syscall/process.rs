@@ -1,3 +1,5 @@
+use sys::syscall::ARGS_BUFFERED;
+
 use crate::{alloc::{CheckError, PTEFlag}, cpu::CPU, proc::{current_cpu, Process}, service::Argument};
 
 impl Process {
@@ -67,6 +69,10 @@ impl Process {
         panic!("invalid response from PM_WAIT");
     }
 
+    unsafe fn exec(&mut self, name : &[u8]) {
+        self.exec_test(name);
+    }
+
     pub unsafe fn handle_fatal_error(&mut self, msg: &str) -> ! {
         warning!("process {} fatal error: {}", self.get_pid().bits(), msg);
         self.exit(1);
@@ -93,5 +99,18 @@ impl CPU {
         let process     = &mut *self.get_process();
         let trap_frame  = process.get_trap_frame();
         process.wait(trap_frame.a0);
+    }
+
+    pub(super) unsafe fn sys_exec(&mut self) {
+        let process     = &mut *self.get_process();
+        let trap_frame  = process.get_trap_frame();
+        // We ignore a2 and a3 now.
+        let args = Argument::new([trap_frame.a0, trap_frame.a1, ARGS_BUFFERED], process);
+        match args {
+            Argument::Buffered(data) => {
+                return process.exec(&data[..]);
+            }
+            _ => panic!("Impossible argument type")
+        }
     }
 }

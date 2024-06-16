@@ -27,11 +27,10 @@ pub struct Process {
 impl Process {
     /** Initialize those necessary resources first. */
     pub unsafe fn init() -> Process {
-        let memory = MemoryArea::new();
-        let root = memory.get_satp();
+        let memory  = MemoryArea::new();
+        let root    = memory.get_satp();
         message!("Process created with root {:#x}", root.address() as usize);
 
-        root.map_trampoline();
         let (trap_frame, kernel_stack) = root.map_trap_frame();
 
         // Complete the resource initialization.
@@ -43,6 +42,21 @@ impl Process {
             response : None,
             memory, trap_frame
         };
+    }
+
+    pub(super) unsafe fn reinit(&mut self) {
+        self.get_memory_area().free();
+        self.get_trap_frame().free();
+
+        self.memory = MemoryArea::new();
+        let root    = self.memory.get_satp();
+        message!("Process re-created with root {:#x}", root.address() as usize);
+        let (trap_frame, kernel_stack) = self.get_memory_area().get_satp().map_trap_frame();
+        self.trap_frame = trap_frame;
+        self.context    = Context::new_with(kernel_stack);
+        self.response   = None;
+        self.isalive    = true;
+        assert!(self.status == ProcessStatus::RUNNING);
     }
 
     /** Return the inner context. */

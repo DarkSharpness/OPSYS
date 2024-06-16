@@ -25,6 +25,24 @@ unsafe fn load_file(which : usize) -> &'static [u8] {
     return meta.get_data();
 }
 
+unsafe fn find_given_index(name : &[u8]) -> Option<usize> {
+    extern "C" {
+        static _num_app : usize;
+        static _app_meta: Property;
+    }
+
+    let num : usize = _num_app;
+    for i in 0..num {
+        let meta = &*addr_of!(_app_meta).wrapping_add(i);
+        let meta_name = meta.get_raw_name();
+        if meta_name == name {
+            return Some(i);
+        }
+    }
+
+    return None;
+}
+
 
 impl Process {
     pub(super) unsafe fn new_test(which : usize) -> Process {
@@ -44,7 +62,29 @@ impl Process {
         return process;
     }
 
-/* 
+    pub unsafe fn exec_test(&mut self, name : &[u8]) -> bool {
+        match find_given_index(name) {
+            None => {
+                return false;
+            },
+            Some(which) => {
+                let data = load_file(which);
+
+                self.reinit();
+
+                self.init_from_elf(data);
+
+                // Initialize the user stack.
+                let trap_frame = self.get_trap_frame();
+                trap_frame.sp = MemoryArea::get_user_stack_top();
+
+                self.get_memory_area().add_stack(1);
+                return true;
+            }
+        }
+    }
+
+    /* 
     pub(super) unsafe fn old_test(which : bool) -> Process {
         let process = Process::init();
         let text = PageAddress::new_zero_page();
@@ -77,8 +117,11 @@ impl Process {
 }
 
 impl Property {
+    pub unsafe fn get_raw_name (&self) -> &[u8] {
+        core::slice::from_raw_parts(self.name, self.strlen)
+    }
     pub unsafe fn get_name (&self) -> &str {
-        core::str::from_utf8(core::slice::from_raw_parts(self.name, self.strlen)).unwrap()
+        core::str::from_utf8(self.get_raw_name()).unwrap()
     }
     pub unsafe fn get_data (&self) -> &[u8] {
         core::slice::from_raw_parts(self.start, self.length)

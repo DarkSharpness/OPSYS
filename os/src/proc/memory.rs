@@ -13,19 +13,12 @@ pub struct MemoryArea {
 const USER_STACK : usize = 1 << 38;
 const USER_STACK_LOWEST : usize = USER_STACK - PAGE_SIZE * 512;
 
-impl PageAddress {
-    unsafe fn map_user_stack(self, cnt : usize) {
-        for i in 0..cnt {
-            let user_stack = USER_STACK - (i + 1) * PAGE_SIZE as usize;
-            self.new_umap(user_stack, PTEFlag::RW);
-        }
-    }
-}
-
 impl MemoryArea {
     pub fn new() -> MemoryArea {
+        let root = PageAddress::new_pagetable();
+        unsafe { root.map_trampoline(); }
         MemoryArea {
-            root            : PageAddress::new_pagetable(),
+            root,
             program_start   : 0,
             program_finish  : 0,
             break_finish    : 0,
