@@ -27,6 +27,7 @@ pub const PM_EXIT : usize = 0;
 pub const PM_FORK : usize = 1;
 pub const PM_EXEC : usize = 2;
 pub const PM_WAIT : usize = 3;
+pub const PM_DUMP : usize = 9;
 
 const MAGIC : usize = 1919;
 

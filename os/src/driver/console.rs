@@ -1,7 +1,8 @@
 extern crate alloc;
 
 use alloc::{collections::VecDeque, vec::Vec};
-use crate::{proc::{Process, ProcessStatus}, utility::DequeIter};
+use sys::syscall::{PM_DUMP, PM_PORT};
+use crate::{proc::{Process, ProcessStatus}, service::{service_request_async, Argument}, utility::DequeIter};
 
 use super::uart::sync_putc;
 
@@ -19,7 +20,7 @@ unsafe fn backspace() {
 }
 
 impl Console {
-    const P : u8 = ('P' as u8) - ('@' as u8);   // Print
+    const L : u8 = ('L' as u8) - ('@' as u8);   // Print
     const U : u8 = ('U' as u8) - ('@' as u8);   // Remove a line
     const H : u8 = ('H' as u8) - ('@' as u8);   // Delete a character
     const D : u8 = ('D' as u8) - ('@' as u8);   // End of file
@@ -96,7 +97,9 @@ impl Console {
     /// Try to interpret a control character
     unsafe fn try_interpret(&mut self, c : u8) -> bool {
         match c {
-            Self::P                => todo!("Dump the process"),
+            Self::L                => {
+                service_request_async(Argument::Register(0, 0), PM_DUMP, PM_PORT);
+            },
             Self::U                => self.try_flushline(),
             Self::H | Self::DELETE => self.try_backspace(),
             Self::X                => panic!("Kernel is killed"),

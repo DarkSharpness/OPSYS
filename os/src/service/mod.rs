@@ -4,6 +4,7 @@ mod service;
 mod request;
 
 extern crate alloc;
+
 pub use argv::Argument;
 use handle::ServiceHandle;
 use request::Request;
@@ -19,7 +20,8 @@ impl Process {
     pub unsafe fn service_request(&mut self, args : Argument, kind : usize, port : usize) {
         let service = &mut SERVICE[port];
         self.sleep_as(ProcessStatus::SERVICE);
-        service.push_back(Request::new(args, kind, self));
+        let handle = ServiceHandle::from_process(self);
+        service.push_back(Request::new(args, kind, handle));
 
         match service.try_wake_up_servant() {
             Some(process)   => self.yield_to_process(&mut *process),
@@ -42,4 +44,10 @@ impl Process {
         target.wake_up_from(ProcessStatus::SERVICE);
         self.yield_to_process(target);
     }
+}
+
+pub unsafe fn service_request_async(args : Argument, kind : usize, port : usize) {
+    let service = &mut SERVICE[port];
+    service.push_back(Request::new(args, kind, ServiceHandle::new_async()));
+    service.try_wake_up_servant();
 }

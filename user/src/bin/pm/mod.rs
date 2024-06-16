@@ -1,10 +1,10 @@
-use core::{ptr::null_mut, usize};
+use core::{ptr::{null, null_mut}, usize};
 
 use crate::{sys_respond, Argument, IPCHandle};
 
 extern crate alloc;
 use alloc::{collections::BTreeMap, vec::Vec, boxed::Box};
-use user_lib::println;
+use user_lib::{print, println};
 
 pub struct Node {
     pid     : usize,
@@ -109,6 +109,22 @@ impl Node {
         }
         self.set_waiting(handle);
     }
+
+    fn dump(&self, indent : usize, parent : *const Node) {
+        assert!((self.parent as *const Node) == parent);
+        print!("- ");
+        for _ in 0..indent { print!("    "); }
+        if self.is_dead() {
+            assert!(self.child.capacity() == 0);
+            println!("[x] pid: {}, exit_code: {}", self.pid, self.exit_code);
+        } else {
+            println!("[ ] pid: {}", self.pid);
+            let this = self as *const Node;
+            for i in 0..self.child.len() {
+                self.get_child(i).dump(indent + 1, this);
+            }
+        }
+    }
 }
 
 impl Node {
@@ -157,4 +173,18 @@ impl Node {
 
 fn respond_wait(pid : usize, exit_code : i32, handle : IPCHandle) {
     sys_respond(Argument::Register(pid, exit_code as _), handle);
+}
+
+pub fn pm_dump() {
+    let mut noroot : Vec<*mut Node> = Vec::new();
+    for (_, node) in unsafe { POOL.iter_mut() } {
+        let node = &mut **node;
+        if node.is_orphan() {
+            noroot.push(node);
+        }
+    }
+    println!("== Dumping all nodes: ==");
+    for node in noroot {
+        unsafe { (*node).dump(0, null()); }
+    }
 }

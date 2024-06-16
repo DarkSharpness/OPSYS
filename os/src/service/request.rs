@@ -11,8 +11,7 @@ pub struct Request {
 }
 
 impl Request {
-    pub unsafe fn new(args : Argument, kind : usize, process : &mut Process) -> Self {
-        let handle = ServiceHandle::from_process(process);
+    pub unsafe fn new(args : Argument, kind : usize, handle  : ServiceHandle) -> Self {
         return Self { kind, args, handle };
     }
 
