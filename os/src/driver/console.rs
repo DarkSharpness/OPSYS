@@ -65,11 +65,11 @@ impl Console {
 
     pub unsafe fn try_read
         (&mut self, process : &mut Process, dst : usize, len : usize) -> usize {
-        self.queue.push_back(process);
-
         while self.stdin.len() == 0 {
+            self.queue.push_back(process);
             process.sleep_as(ProcessStatus::SERVICE);
             process.yield_to_scheduler();
+            core::hint::black_box(&self.stdin);
         }
 
         let len = core::cmp::min(len, self.stdin.len());
