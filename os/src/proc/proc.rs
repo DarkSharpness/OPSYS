@@ -6,8 +6,6 @@ use crate::trap::TrapFrame;
 use super::memory::MemoryArea;
 use super::{Context, PidType};
 
-const USER_STACK : usize = 1 << 38;
-
 #[derive(Debug, PartialEq, Clone)]
 pub enum ProcessStatus {
     RUNNING,    // running on CPU

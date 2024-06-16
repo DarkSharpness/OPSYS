@@ -1,19 +1,6 @@
 use core::ptr::addr_of;
 
-use crate::alloc::{PTEFlag, PageAddress, PAGE_SIZE};
-
-use super::Process;
-
-const USER_STACK : usize = 1 << 38;
-
-impl PageAddress {
-    unsafe fn map_user_stack(self, cnt : usize) {
-        for i in 0..cnt {
-            let user_stack = USER_STACK - (i + 1) * PAGE_SIZE as usize;
-            self.new_umap(user_stack, PTEFlag::RW);
-        }
-    }
-}
+use super::{memory::MemoryArea, Process};
 
 #[repr(C)]
 struct Property {
@@ -50,8 +37,9 @@ impl Process {
 
         // Initialize the user stack.
         let trap_frame = process.get_trap_frame();
-        trap_frame.sp = USER_STACK;
-        process.get_satp().map_user_stack(1);
+        trap_frame.sp = MemoryArea::get_user_stack_top();
+
+        process.get_memory_area().add_stack(1);
 
         return process;
     }
