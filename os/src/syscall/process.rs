@@ -2,22 +2,21 @@ use crate::{alloc::{CheckError, PTEFlag}, cpu::CPU, proc::{current_cpu, Process}
 
 impl Process {
     pub unsafe fn address_check(&mut self, args : [usize; 2], permission : PTEFlag) {
-        let result = self.get_satp().check_ptr(args[0], args[1], permission);
-        match result {
-            CheckError::Nothing => return,
-            CheckError::MissingPage(addr) => {
-                warning!("trying to handle missing page at {:x}", addr);
+        loop {
+            let result = self.get_satp().check_ptr(args[0], args[1], permission);
+            match result {
+                CheckError::Nothing => return,
+                CheckError::MissingPage(addr) => {
+                    warning!("address check fail at {:x}", addr);
 
-                if permission.contains(PTEFlag::RW) {
-                    self.handle_page_fault(addr, crate::trap::PageFaultType::Store);
-                } else {
-                    self.handle_page_fault(addr, crate::trap::PageFaultType::Load);
-                }
-
-                self.handle_fatal_error("address check failed");
-            },
+                    if permission.contains(PTEFlag::RW) {
+                        self.handle_page_fault(addr, crate::trap::PageFaultType::Store)
+                    } else {
+                        self.handle_page_fault(addr, crate::trap::PageFaultType::Load)
+                    }
+                },
+            }
         }
-
     }
 
     unsafe fn fork(&mut self) -> Process {
