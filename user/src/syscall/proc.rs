@@ -4,6 +4,18 @@ use super::call::*;
 #[derive(Clone)]
 pub struct PidType(usize);
 
+pub enum WaitResult {
+    Some(PidType, i32),
+    None,
+    Error,
+}
+
+pub enum ForkResult {
+    Parent(PidType),
+    Child,
+    Error,
+}
+
 impl PidType {
     pub const fn new(pid : usize) -> PidType {
         PidType(pid)
@@ -18,16 +30,25 @@ pub unsafe fn sys_exit(code : i32) -> ! {
     panic!("unreachable in sys_exit");
 }
 
-pub unsafe fn sys_fork() -> isize {
-    syscall0(SYS_FORK)
+pub unsafe fn sys_fork() -> ForkResult {
+    let ret = syscall0(SYS_FORK);
+    if ret == -1 {
+        ForkResult::Error
+    } else if ret == 0{
+        ForkResult::Child
+    } else {
+        ForkResult::Parent(PidType::new(ret as usize))
+    }
 }
 
-pub unsafe fn sys_wait() -> Option<(PidType, i32)> {
+pub unsafe fn sys_wait() -> WaitResult {
     let (ret0, ret1) = syscall0_2(SYS_WAIT);
     if ret0 == -1 {
-        None
+        WaitResult::Error
+    } else if ret0 == 0 {
+        WaitResult::None
     } else {
-        Some((PidType::new(ret0 as usize), ret1 as i32))
+        WaitResult::Some(PidType::new(ret0 as usize), ret1 as i32)
     }
 }
 

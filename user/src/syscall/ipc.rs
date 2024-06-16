@@ -1,5 +1,7 @@
 use sys::syscall::*;
 
+use crate::PidType;
+
 pub struct IPCHandle(usize);
 
 pub enum Argument {
@@ -10,10 +12,11 @@ pub enum Argument {
 pub type IPCKind = usize;
 
 pub enum IPCEnum {
-    IPCFail(usize),                 // Buffer too small, give you the needed size.
-    IPCAsync(Argument, IPCKind),             // Asynchronous IPC.
+    IPCFail(usize),                 // Buffer too small, provide the needed size.
+    IPCAsync(Argument, IPCKind),    // Asynchronous IPC.
     IPCHandle(Argument, IPCKind, IPCHandle), // With argument and handle.
 }
+
 pub struct AcceptPacket {
     args    : [usize; 3],
     kind    : usize,
@@ -109,5 +112,5 @@ impl AcceptPacket {
 
 impl IPCHandle {
     /** Get the process id of the process who have requested. */
-    pub unsafe fn get_pid(&self) -> usize { return handle_to_pid(self.0); }
+    pub unsafe fn get_pid(&self) -> PidType { return PidType::new(handle_to_pid(self.0)); }
 }
