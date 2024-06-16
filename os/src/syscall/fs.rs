@@ -30,7 +30,7 @@ impl CPU {
 
         process.address_check([buf, len], PTEFlag::RO);
         match fd {
-            1 => { uart_println!("[stdout]"); },
+            1 => {},
             2 => {},
             _ => {
                 warning!("Unknown file descriptor: {}", fd);
@@ -42,7 +42,7 @@ impl CPU {
         process.get_trap_frame().a0 = result;
 
         match fd {
-            1 => { uart_println!("[stdout]"); },
+            1 => {},
             2 => {},
             _ => {
                 warning!("Unknown file descriptor: {}", fd);
