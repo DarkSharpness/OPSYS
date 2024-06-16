@@ -3,6 +3,7 @@ use riscv::register::*;
 use crate::alloc::PageAddress;
 use crate::cpu::current_cpu;
 use crate::driver::plic;
+use crate::trap::exception::PageFaultType;
 use crate::trap::{set_kernel_trap, set_user_trap};
 use super::{user_handle, user_return, Interrupt, TRAMPOLINE};
 
@@ -21,6 +22,7 @@ pub unsafe fn user_trap() {
     // fault_test();
 
     let cpu = current_cpu();
+    let process = &mut (*cpu.get_process());
 
     use scause::{Trap, Interrupt, Exception};
     match scause::read().cause() {
@@ -30,13 +32,13 @@ pub unsafe fn user_trap() {
             // We should yield out the time.
             Interrupt::SupervisorSoft => {
                 asm!("csrci sip, 2");
-                cpu.sys_yield();
+                process.yield_to_scheduler();
             },
             Interrupt::SupervisorExternal => {
                 // Acknowledge the external interrupt
                 plic::resolve();
                 asm!("csrc sip, {}", in(reg) 1 << 9);
-            }
+            },
             _ => panic!("Unable to resolve interrupt {:?}", interrupt),   
         },
 
@@ -45,7 +47,19 @@ pub unsafe fn user_trap() {
                 // Load out the syscall id in a7
                 // Load out the arguments in a0, a1, a2
                 cpu.syscall();
-            }
+            },
+            Exception::StorePageFault => {
+                let addr = stval::read();
+                process.handle_page_fault(addr, PageFaultType::Store);
+            },
+            Exception::LoadPageFault => {
+                let addr = stval::read();
+                process.handle_page_fault(addr, PageFaultType::Load);
+            },
+            Exception::InstructionPageFault => {
+                let addr = stval::read();
+                process.handle_page_fault(addr, PageFaultType::Instruction);
+            },
             _ => panic!("Unable to resolve exception {:?}", exception),
         }
     }

@@ -10,6 +10,7 @@ pub use constant::KERNEL_SATP;
 pub use constant::PAGE_SIZE;
 pub use page::PageAddress;
 pub use page::PTEFlag;
+pub use page_copy::CheckError;
 
 use constant::*;
 use core::alloc::{GlobalAlloc, Layout};

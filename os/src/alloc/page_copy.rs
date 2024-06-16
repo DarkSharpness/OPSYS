@@ -10,6 +10,12 @@ struct PageIterator {
     leaf    : *mut PageTableEntry,
 }
 
+#[derive(Debug)]
+pub enum CheckError {
+    Nothing,            // OK
+    MissingPage(usize)  // Missing page at index.
+}
+
 impl PageAddress {
         /**
      * Copy from a kernel pointer to a user pointer.
@@ -32,12 +38,12 @@ impl PageAddress {
     }
 
     /** Validate the input pointer. */
-    pub unsafe fn check_ptr(self, dst : usize, len : usize, flag : PTEFlag) -> bool {
-        if len == 0 { return true; }
+    pub unsafe fn check_ptr(self, dst : usize, len : usize, flag : PTEFlag) -> CheckError {
+        if len == 0 { return CheckError::Nothing; }
         let end = dst + len;
         let page_beg = dst >> 12;
         let page_end = (end - 1) >> 12;
-        return validate_pointer(self, dst, page_end - page_beg, flag);
+        return check_pointer(self, dst, page_end - page_beg, flag);
     }
 
     pub unsafe fn copy_from(self, root : PageAddress) {
@@ -173,19 +179,24 @@ unsafe fn user_to_core_impl <T : CanPush> (
 /**
  * Validate the pointer in a range of pages.
  */
-unsafe fn validate_pointer(
-    addr : PageAddress, beg : usize, mut cnt : usize, test : PTEFlag) -> bool {
+unsafe fn check_pointer(
+    addr : PageAddress, mut beg : usize, mut cnt : usize, test : PTEFlag) -> CheckError {
     let mut iter = match addr.get_iterator(beg) {
         Some(x) => x,
-        None => return false,
+        None => return CheckError::MissingPage(beg),
     };
     loop {
         let (_, flag) = iter.get_address_flag();
-        if !flag.contains(U | V | test) { return false; }
+        if !flag.contains(U | V | test) {
+            return CheckError::MissingPage(beg);
+        }
 
-        if cnt == 0 { return true; }
+        if cnt == 0 { return CheckError::Nothing; }
+
+        beg += PAGE_SIZE;
         cnt -= 1;
-        if !iter.inc_check() { return false; }
+
+        if !iter.inc_check() { return CheckError::MissingPage(beg); }
     }
 }
 

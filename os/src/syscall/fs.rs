@@ -12,8 +12,7 @@ impl CPU {
         match fd {
             0 => {},
             _ => {
-                warning!("Unknown file descriptor: {}", fd);
-                process.exit(1);
+                process.handle_fatal_error("unknown file descriptor");
             }
         }
 
@@ -33,8 +32,7 @@ impl CPU {
             1 => {},
             2 => {},
             _ => {
-                warning!("Unknown file descriptor: {}", fd);
-                process.exit(1);
+                process.handle_fatal_error("unknown file descriptor");
             }
         }
 
@@ -45,8 +43,7 @@ impl CPU {
             1 => {},
             2 => {},
             _ => {
-                warning!("Unknown file descriptor: {}", fd);
-                process.exit(1);
+                process.handle_fatal_error("unknown file descriptor");
             }
         }
     }

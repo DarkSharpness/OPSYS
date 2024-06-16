@@ -1,7 +1,9 @@
 mod user;
 mod kernel;
 mod frame;
+mod exception;
 
+pub use exception::PageFaultType;
 pub use user::*;
 pub use frame::TrapFrame;
 

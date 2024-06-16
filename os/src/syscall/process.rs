@@ -1,10 +1,23 @@
-use crate::{alloc::PTEFlag, cpu::CPU, proc::{current_cpu, Process}, service::Argument};
+use crate::{alloc::{CheckError, PTEFlag}, cpu::CPU, proc::{current_cpu, Process}, service::Argument};
 
 impl Process {
     pub unsafe fn address_check(&mut self, args : [usize; 2], permission : PTEFlag) {
-        if !self.get_satp().check_ptr(args[0], args[1], permission) {
-            self.exit(1);
+        let result = self.get_satp().check_ptr(args[0], args[1], permission);
+        match result {
+            CheckError::Nothing => return,
+            CheckError::MissingPage(addr) => {
+                warning!("trying to handle missing page at {:x}", addr);
+
+                if permission.contains(PTEFlag::RW) {
+                    self.handle_page_fault(addr, crate::trap::PageFaultType::Store);
+                } else {
+                    self.handle_page_fault(addr, crate::trap::PageFaultType::Load);
+                }
+
+                self.handle_fatal_error("address check failed");
+            },
         }
+
     }
 
     unsafe fn fork(&mut self) -> Process {
@@ -26,7 +39,7 @@ impl Process {
         return child;
     }
 
-    pub unsafe fn exit(&mut self, status: usize) -> ! {
+    unsafe fn exit(&mut self, status: usize) -> ! {
         use sys::syscall::*;
         self.service_request(Argument::Register(status, 0), PM_EXIT, PM_PORT);
         current_cpu().get_manager().remove_process(self);
@@ -37,6 +50,11 @@ impl Process {
     unsafe fn wait(&mut self, pid : usize) {
         use sys::syscall::*;
         self.service_request(Argument::Register(pid, 0), PM_WAIT, PM_PORT);
+    }
+
+    pub unsafe fn handle_fatal_error(&mut self, msg: &str) {
+        warning!("process {} fatal error: {}", self.get_pid().bits(), msg);
+        self.exit(1);
     }
 }
 

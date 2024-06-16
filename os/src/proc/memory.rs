@@ -1,6 +1,6 @@
 use core::cmp::max;
 
-use crate::alloc::{PTEFlag, PageAddress, PAGE_SIZE};
+use crate::{alloc::{PTEFlag, PageAddress, PAGE_SIZE}, trap::PageFaultType};
 
 pub struct MemoryArea {
     root            : PageAddress,  // root page table
@@ -11,6 +11,16 @@ pub struct MemoryArea {
 }
 
 const USER_STACK : usize = 1 << 38;
+const USER_STACK_LOWEST : usize = USER_STACK - PAGE_SIZE * 512;
+
+impl PageAddress {
+    unsafe fn map_user_stack(self, cnt : usize) {
+        for i in 0..cnt {
+            let user_stack = USER_STACK - (i + 1) * PAGE_SIZE as usize;
+            self.new_umap(user_stack, PTEFlag::RW);
+        }
+    }
+}
 
 impl MemoryArea {
     pub fn new() -> MemoryArea {
@@ -78,13 +88,15 @@ impl MemoryArea {
         let root = self.get_satp();
         root.free();
     }
-}
 
-impl PageAddress {
-    unsafe fn map_user_stack(self, cnt : usize) {
-        for i in 0..cnt {
-            let user_stack = USER_STACK - (i + 1) * PAGE_SIZE as usize;
-            self.new_umap(user_stack, PTEFlag::RW);
+    pub unsafe fn handle_page_fault(&mut self, addr : usize, tp : PageFaultType) -> bool {
+        if addr < self.stack_bottom && addr >= USER_STACK_LOWEST &&
+            tp == PageFaultType::Load || tp == PageFaultType::Store {
+            let required = addr / PAGE_SIZE;
+            let current  = self.stack_bottom / PAGE_SIZE;
+            self.add_stack(current - required);
+            return true;
         }
+        return false;
     }
 }
