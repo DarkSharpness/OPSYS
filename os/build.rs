@@ -16,9 +16,17 @@ fn insert_app_data() -> Result<()> {
         .into_iter()
         .map(|dir_entry| {
             let mut name_with_ext = dir_entry.unwrap().file_name().into_string().unwrap();
-            name_with_ext.drain(name_with_ext.find('.').unwrap()..name_with_ext.len());
-            name_with_ext
+            let position = name_with_ext.find('.');
+            match position {
+                Some(pos) => {
+                    name_with_ext.drain(pos..name_with_ext.len());
+                    Some(name_with_ext)
+                }
+                None => { /* Just a dictionary. */ None }
+            }
         })
+        .filter(|x| x.is_some())
+        .map(|x| x.unwrap())
         .collect();
     apps.sort();
 
