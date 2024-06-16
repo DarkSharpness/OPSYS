@@ -44,32 +44,14 @@ impl Node {
         child.set_parent(self);
     }
 
-    fn force_remove(&mut self, target : &mut Node) {
+    fn force_remove(&mut self, target : *mut Node) {
         for i in 0..self.child.len() {
             if self.child[i] == target {
                 self.child.swap_remove(i);
                 return;
             }
         }
-        println!("{:?}", self.child);
         panic!("::which_child: target is not a child of self.");
-    }
-
-    fn remove_child(&mut self, target : &mut Node) {
-        self.force_remove(target);
-        target.set_orphan();
-
-        // Some updates are needed here.
-
-        let handle = match self.handle.take() {
-            Some(handle)    => handle,
-            None            => return
-        };
-
-        let pid = unsafe { target.get_pid() };
-        let code = target.get_exit_code();
-        target.destroy();
-        return respond_wait(pid, code, handle);
     }
 
     pub fn exit(&mut self, exit_code : i32) {
@@ -96,8 +78,19 @@ impl Node {
         } else {
             let this = self as *mut Node; // Just to skip borrow checker.
             let this = unsafe {&mut *this};
-            self.get_parent().remove_child(this);
+            self.get_parent().try_wait_child(this);
         }
+    }
+
+    fn try_wait_child(&mut self, target : &mut Node) {
+        target.set_orphan();
+
+        // Some updates are needed here.
+        let handle = match self.handle.take() {
+            Some(handle)    => handle,
+            None            => return
+        };
+        return self.respond_wait(target, handle);
     }
 
     pub fn wait(&mut self, handle: IPCHandle) {
@@ -105,17 +98,23 @@ impl Node {
         for i in 0..self.child.len() {
             let child = self.get_child(i);
             if child.is_dead() {
-                let pid = unsafe { child.get_pid() };
-                let code = child.get_exit_code();
-                child.destroy();
-                return respond_wait(pid, code, handle);
+                return self.respond_wait(child, handle);
             }
         }
         self.set_waiting(handle);
     }
 
+    fn respond_wait(&mut self, child : *mut Node, handle : IPCHandle) {
+        let child = unsafe { &mut *child };
+        let pid = unsafe { child.get_pid() };
+        let code = child.get_exit_code();
+        child.destroy();
+        self.force_remove(child);
+        sys_respond(Argument::Register(pid, code as _), handle);
+    }
+
     fn dump(&self, indent : usize, parent : *const Node) {
-        assert!((self.parent as *const Node) == parent);
+        assert!((self.parent as *const Node) == parent || self.is_dead());
         for _ in 0..indent { print!("  "); }
         if self.is_dead() {
             assert!(self.child.capacity() == 0);
@@ -174,15 +173,11 @@ impl Node {
     }
 }
 
-fn respond_wait(pid : usize, exit_code : i32, handle : IPCHandle) {
-    sys_respond(Argument::Register(pid, exit_code as _), handle);
-}
-
 pub fn pm_dump() {
     let mut noroot : Vec<*mut Node> = Vec::new();
     for (_, node) in unsafe { POOL.iter_mut() } {
         let node = &mut **node;
-        if node.is_orphan() {
+        if node.is_orphan() && !node.is_dead() {
             noroot.push(node);
         }
     }
