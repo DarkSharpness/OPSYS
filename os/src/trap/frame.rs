@@ -1,6 +1,8 @@
+use core::ptr::null_mut;
+
 use riscv::register::satp;
 
-use crate::alloc::{allocate_one_page, deallocate_one_page, PTEFlag, PageAddress, PAGE_SIZE};
+use crate::alloc::{PTEFlag, PageAddress, KERNEL_SATP, PAGE_SIZE};
 
 use super::{user_trap, TRAP_FRAME};
 
@@ -56,10 +58,17 @@ impl TrapFrame {
         dst.copy_from(src, 32);
     }
     pub unsafe fn free(&self) {
-        let kernel_stack = self.kernel_stack - PAGE_SIZE;
-        deallocate_one_page(kernel_stack as _);
+        let stack_top = self.kernel_stack;
+        FRAME_ALLOCATOR.deallocate(stack_top);
     }
 }
+
+struct FrameAllocator {
+    last    : *mut usize,
+    lowest  : usize,
+}
+
+static mut FRAME_ALLOCATOR : FrameAllocator = FrameAllocator::new();
 
 impl PageAddress {
     /** Create a trap frame with all the private members initialized. */
@@ -67,14 +76,45 @@ impl PageAddress {
         let trap_frame = self.new_smap(TRAP_FRAME, PTEFlag::RW);
         let trap_frame = &mut *(trap_frame.address() as *mut TrapFrame);
 
-        let kernel_stack = allocate_one_page();
-        let kernel_stack_top = kernel_stack as usize + PAGE_SIZE;
+        let kernel_stack = FRAME_ALLOCATOR.allocate();
+        let kernel_stack_top = kernel_stack + PAGE_SIZE;
 
         trap_frame.thread_number = 0;
         trap_frame.kernel_stack = kernel_stack_top;
-        trap_frame.kernel_satp = satp::read().bits();
+        trap_frame.kernel_satp  = satp::read().bits();
         trap_frame.kernel_trap  = user_trap as _;
 
         return (trap_frame, kernel_stack_top);
+    }
+}
+
+const KERNEL_STACK_BEGIN : usize = (PAGE_SIZE * 4).wrapping_neg();
+
+impl FrameAllocator {
+    pub const fn new() -> Self {
+        Self {
+            last    : null_mut(),
+            lowest  : KERNEL_STACK_BEGIN,
+        }
+    }
+
+    pub unsafe fn allocate(&mut self) -> usize {
+        if self.last == null_mut() {
+            self.lowest -= PAGE_SIZE * 2;
+            let result = self.lowest + PAGE_SIZE;
+            KERNEL_SATP.new_smap(result, PTEFlag::RW);
+            return result;
+        } else {
+            let result = self.last;
+            self.last = *self.last as *mut usize;
+            return result as _;
+        }
+    }
+
+    pub unsafe fn deallocate(&mut self, stack_top : usize) {
+        let stack = stack_top - PAGE_SIZE;
+        let address = stack as *mut usize;
+        *address = self.last as usize;
+        self.last = address as _;
     }
 }

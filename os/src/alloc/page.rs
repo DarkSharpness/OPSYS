@@ -175,6 +175,12 @@ unsafe fn init_kernel_page(leaf : PageAddress, middle_count : usize) {
     // position, within the text section (which will be marked as RX).
     // So, we need to change it to RW.
     set_special_identity(leaf, 2, 0, 2, PTEFlag::RW);
+
+    extern "C" { fn boot_stack_low(); }
+    let stack = get_relative_page_num(boot_stack_low as usize);
+    message!("Boot stack at {}", stack);
+
+    set_special_identity(leaf, 2, 0, stack, PTEFlag::INVALID);
 }
 
 impl PageTableEntry {
