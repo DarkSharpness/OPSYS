@@ -1,7 +1,7 @@
 use sys::syscall::*;
 
 #[derive(Clone, Copy)]
-pub struct FileDescriptor(isize);
+pub struct FileDescriptor(usize);
 
 fn syscall0(id : usize) -> isize {
     let mut ret : isize;
@@ -72,8 +72,13 @@ pub unsafe fn sys_shutdown() -> ! {
     loop {}
 }
 
-pub unsafe fn sys_open(path : *const u8, flags : usize) -> FileDescriptor {
-    FileDescriptor(syscall2(SYS_OPEN, [path as _, flags]))
+pub unsafe fn sys_open(path : *const u8, flags : usize) -> Option<FileDescriptor> {
+    let result = syscall2(SYS_OPEN, [path as usize, flags]);
+    if result < 0 {
+        return None;
+    } else {
+        return Some(FileDescriptor(result as usize));
+    }
 }
 
 pub unsafe fn sys_close(fd : FileDescriptor) -> isize {
@@ -91,7 +96,11 @@ pub unsafe fn sys_read(fd : FileDescriptor, buf : &mut [u8]) -> isize {
 pub unsafe fn sys_yield() { syscall0(SYS_YIELD); }
 
 impl FileDescriptor {
-    pub(crate) const unsafe fn new(fd : isize) -> FileDescriptor {
+    pub(crate) const fn new(fd : usize) -> FileDescriptor {
+        return FileDescriptor(fd);
+    }
+    // Debug use only. Do not use in production code.
+    pub unsafe fn new_debug(fd : usize) -> FileDescriptor {
         return FileDescriptor(fd);
     }
 }
