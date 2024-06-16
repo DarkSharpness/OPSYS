@@ -6,30 +6,38 @@ use user_lib::*;
 extern crate alloc;
 use alloc::string::String;
 
+fn put_prefix() {
+    print!("$ "); flush_stdout();
+}
+
 #[no_mangle]
 unsafe fn main() -> i32 {
-    let mut string = String::new();    
-    print!("$ "); flush_stdout();
+    let mut string = String::new();
+    put_prefix();
     while read_line(&mut string) {
+        if string.is_empty() {
+            put_prefix();
+            continue;
+        }
         match sys_fork() {
-            ForkResult::Error => panic!("fork error"),
+            ForkResult::Error => {},
             ForkResult::Parent(pid) => {
                 match sys_wait() {
                     WaitResult::Error => panic!("wait error"),
                     WaitResult::None => panic!("no child process"),
                     WaitResult::Some(_pid, code) => {
                         assert!(pid == _pid);
-                        println!("shell process exited with {}", code)
+                        println!("-- Shell process exited with {} --", code)
                     }
                 }
             },
             ForkResult::Child => {
                 let bytes = string.as_bytes();
                 sys_exec(&bytes, core::ptr::null());
-                panic!("exec error")
+                panic!("-- No such program {} --", string)
             }
         }
-        print!("$ "); flush_stdout();
+        put_prefix();
     }
     return 0;
 }
