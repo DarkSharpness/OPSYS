@@ -67,7 +67,9 @@ impl Node {
         };
 
         let pid = unsafe { target.get_pid() };
-        return respond_wait(pid, target.get_exit_code(), handle);
+        let code = target.get_exit_code();
+        target.destroy();
+        return respond_wait(pid, code, handle);
     }
 
     pub fn exit(&mut self, exit_code : i32) {
@@ -104,7 +106,9 @@ impl Node {
             let child = self.get_child(i);
             if child.is_dead() {
                 let pid = unsafe { child.get_pid() };
-                return respond_wait(pid, child.get_exit_code(), handle);
+                let code = child.get_exit_code();
+                child.destroy();
+                return respond_wait(pid, code, handle);
             }
         }
         self.set_waiting(handle);
@@ -183,8 +187,9 @@ pub fn pm_dump() {
             noroot.push(node);
         }
     }
-    println!("== Dumping all nodes: ==");
+    println!("== Dumping all nodes ==");
     for node in noroot {
         unsafe { (*node).dump(0, null()); }
     }
+    println!("==    End of dump    ==");
 }
