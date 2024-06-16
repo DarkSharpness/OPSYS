@@ -1,8 +1,10 @@
 #![no_std]
 #![no_main]
 
+mod pm;
+use pm::*;
 use sys::syscall::{PM_EXIT, PM_FORK, PM_PORT, PM_WAIT};
-use user_lib::*;
+use user_lib::{println, sys_receive, sys_respond, Argument, IPCEnum, IPCHandle, IPCKind};
 
 #[no_mangle]
 unsafe fn main() -> i32 {
@@ -41,7 +43,7 @@ fn handle_fork(argument : Argument, handle: IPCHandle) {
     unsafe {
         let parent = get_node(parent_pid);
         let child  = get_node(child_pid);
-        (*parent).add_child(child);
+        (*parent).insert_child(child);
     }
     sys_respond(Argument::Register(0, 0), handle);
 }
@@ -51,7 +53,7 @@ fn handle_exit(argument : Argument, handle: IPCHandle) {
         Argument::Buffered(_, _) => panic!("Should not have any arguments!"),
         Argument::Register(x0, x1) => (x0, x1) 
     };
-    
+
     let pid = unsafe { handle.get_pid() };
     let exit_code = x0 as _;
 

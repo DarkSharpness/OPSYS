@@ -1,7 +1,6 @@
 #![allow(dead_code)]
-mod pm;
 mod ipc;
 mod user;
 
 #[allow(unused)]
-pub use {ipc::*, user::*, pm::*};
+pub use {ipc::*, user::*};

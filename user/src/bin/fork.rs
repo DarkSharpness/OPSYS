@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use user_lib::*;
+use user_lib::{println, sys_fork};
 
 #[no_mangle]
 fn main() -> i32 {
@@ -15,8 +15,6 @@ fn main() -> i32 {
             println!("Parent");
             println!("Child pid {}:", child);
         }
-        sys_yield();
-        sys_yield();
     }
     return 0;
 }
