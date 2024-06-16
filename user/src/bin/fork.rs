@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use user_lib::{println, sys_fork};
+use user_lib::{println, sys_fork, sys_wait};
 
 #[no_mangle]
 fn main() -> i32 {
@@ -11,10 +11,17 @@ fn main() -> i32 {
         println!("Hello, World!");
         if child == 0 {
             println!("Child");
+            return 1;
         } else {
             println!("Parent");
-            println!("Child pid {}:", child);
+            println!("Child pid: {}", child);
+            match sys_wait() {
+                Some((pid, status)) => {
+                    println!("Child {} exited with status {}", pid.bits(), status);
+                },
+                None => println!("No child exited"),
+            }
+            return 0;
         }
     }
-    return 0;
 }

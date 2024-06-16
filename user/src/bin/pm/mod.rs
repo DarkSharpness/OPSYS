@@ -4,6 +4,7 @@ use crate::{sys_respond, Argument, IPCHandle};
 
 extern crate alloc;
 use alloc::{collections::BTreeMap, vec::Vec, boxed::Box};
+use user_lib::println;
 
 pub struct Node {
     pid     : usize,
@@ -47,8 +48,10 @@ impl Node {
         for i in 0..self.child.len() {
             if self.child[i] == target {
                 self.child.swap_remove(i);
+                return;
             }
         }
+        println!("{:?}", self.child);
         panic!("::which_child: target is not a child of self.");
     }
 
@@ -119,9 +122,7 @@ impl Node {
         self.exit_code
     }
     unsafe fn get_pid(&self) -> usize {
-        let begin = get_node(0) as *const Node;
-        let end = self as *const Node;
-        return end.offset_from(begin) as usize + 1;
+        return self.pid;
     }
     fn get_child(&self, index : usize) -> &mut Node {
         let child = self.child[index];
