@@ -52,14 +52,19 @@ pub struct TrapFrame {
 
 impl TrapFrame {
     /** Copy only 32 registers from src to self. */
-    pub unsafe fn copy_from(&self, src: &TrapFrame) {
-        let dst = self as *const TrapFrame as *mut usize;
+    pub unsafe fn copy_from(&mut self, src: &TrapFrame) {
+        let dst = self as *mut TrapFrame as *mut usize;
         let src = src as *const TrapFrame as *const usize;
         dst.copy_from(src, 32);
     }
     pub unsafe fn free(&self) {
         let stack_top = self.kernel_stack;
         FRAME_ALLOCATOR.deallocate(stack_top);
+    }
+    pub unsafe fn debug(&self) {
+        message!("    sepc = {:#x}", self.pc);
+        message!("    satp = {:#x}", self.kernel_satp);
+        message!("    kernel_stack = {:#x}", self.kernel_stack);
     }
 }
 
