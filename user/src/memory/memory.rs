@@ -35,7 +35,8 @@ pub unsafe fn malloc(size : usize) -> *mut u8 {
         malloc_init();
     }
 
-    let size = max((size + size_of::<Header>() + 7) & !7, size_of::<Node>());
+    const MIN_SIZE : usize = size_of::<Header>() + size_of::<Node>();
+    let size = max((size + size_of::<Header>() + 7) & !7, MIN_SIZE);
     let heap = get_heap();
     let header = try_find(heap, size);
 
@@ -66,7 +67,7 @@ pub unsafe fn malloc_usable_size(ptr : *mut u8) -> usize {
     check_initialized();
     assert!(ptr as usize % 8 == 0, "Misaligned pointer");
     let header = ptr.sub(8) as *mut Header;
-    return (*header).get_size() as usize;
+    return (*header).get_size() as usize - size_of::<Header>();
 }
 
 pub unsafe fn malloc_dump() {

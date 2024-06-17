@@ -2,7 +2,7 @@ mod list;
 mod heap;
 mod memory;
 
-use core::{alloc::{GlobalAlloc, Layout}, cmp::max};
+use core::alloc::{GlobalAlloc, Layout};
 
 pub use memory::*;
 
@@ -11,11 +11,12 @@ struct DarkSharpness;
 
 unsafe impl GlobalAlloc for DarkSharpness {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        let size = max(layout.size(), layout.align());
-        return malloc(size);
+        assert!(layout.align() <= 8, "For now, we only support align <= 8");
+        let ptr = malloc(layout.size());
+        return ptr;
     }
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        let _ = max(layout.size(), layout.align());
+        let _ = layout;
         return free(ptr);
     }
 }
