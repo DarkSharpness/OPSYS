@@ -15,11 +15,13 @@ pub use schedule::run_process;
 use context::Context;
 use schedule::ProcessManager;
 
-use crate::alloc::KERNEL_SATP;
+use crate::alloc::{PTEFlag, KERNEL_SATP, PAGE_SIZE};
 
 pub unsafe fn init_process() {
     // Add trampoline to the page table
     KERNEL_SATP.map_trampoline();
+    KERNEL_SATP.new_smap((PAGE_SIZE * 3).wrapping_neg(), PTEFlag::RW);
+    KERNEL_SATP.new_smap((PAGE_SIZE * 4).wrapping_neg(), PTEFlag::RW);
 
     let manager = current_cpu().get_manager();
 

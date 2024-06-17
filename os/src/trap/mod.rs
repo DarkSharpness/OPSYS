@@ -23,6 +23,8 @@ extern "C" {
     
     fn user_return(satp : usize);
     fn user_return_end();
+
+    fn dead_handle();
 }
 
 #[inline(always)]
@@ -32,6 +34,10 @@ unsafe fn set_kernel_trap() {
 #[inline(always)]
 unsafe fn set_user_trap() {
     stvec::write(TRAMPOLINE  as _, stvec::TrapMode::Direct);
+}
+#[inline(always)]
+unsafe fn set_dead_trap() {
+    stvec::write(dead_handle as _, stvec::TrapMode::Direct);
 }
 
 /** Return the trampoline physical address */

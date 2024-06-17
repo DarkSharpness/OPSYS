@@ -88,7 +88,7 @@ impl PageAddress {
     }
 }
 
-const KERNEL_STACK_BEGIN : usize = (PAGE_SIZE * 4).wrapping_neg();
+const KERNEL_STACK_BEGIN : usize = (PAGE_SIZE * 8).wrapping_neg();
 
 impl FrameAllocator {
     pub const fn new() -> Self {
@@ -113,7 +113,6 @@ impl FrameAllocator {
     }
 
     pub unsafe fn deallocate(&mut self, stack_top : usize) {
-        warning!("Deallocated a frame at {:#x}", stack_top);
         let stack = stack_top - PAGE_SIZE;
         let address = stack as *mut usize;
         *address = self.last as usize;

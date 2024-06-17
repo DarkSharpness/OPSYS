@@ -125,7 +125,8 @@ user_return_end:
     .globl core_handle
     .align 3
 core_handle:
-    addi sp, sp, -192
+    csrw sscratch, sp
+    li sp, TRAP_CONTEXT_ADDRESS - 192
 
     sd ra, 0(sp)
     sd gp, 8(sp)
@@ -148,9 +149,21 @@ core_handle:
     sd t5, 128(sp)
     sd t6, 136(sp)
 
+    csrr t0, sscratch
+    sd t0, 144(sp)      # Old kernel stack pointer
+
     # Jump to the real handler
     # This will save those saved poiner for us.
     call core_trap
+
+    li t0, TRAP_CONTEXT_ADDRESS - 192
+    beq sp, t0, .here
+    j .
+.here:
+
+    # Restore all registers
+    ld t0, 144(sp)      # Old kernel stack pointer
+    csrw sscratch, t0
 
     ld ra, 0(sp)
     ld gp, 8(sp)
@@ -173,7 +186,7 @@ core_handle:
     ld t5, 128(sp)
     ld t6, 136(sp)
 
-    addi sp, sp, 192
+    csrr sp, sscratch
     sret
 
     .globl time_handle
@@ -250,3 +263,12 @@ switch_context:
 
     ret
 switch_context_end:
+
+    .globl dead_handle
+    .align 3
+dead_handle:
+    csrw sscratch, sp
+    li sp, TRAP_CONTEXT_ADDRESS
+    call dead_trap
+    csrr sp, sscratch
+    j dead_handle

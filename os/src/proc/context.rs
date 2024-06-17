@@ -52,6 +52,7 @@ unsafe fn switch_to(new : &mut Process, cpu : &mut CPU) {
 unsafe fn switch_from(old : &mut Process, cpu : &mut CPU) {
     extern "C" { fn switch_context(old : *mut Context, new : *mut Context); }
     off(old);
+    cpu.reset_timer_time();
     cpu.get_manager().switch_from_to(old, null_mut());
     switch_context(old.get_context(), cpu.get_context());
 }
