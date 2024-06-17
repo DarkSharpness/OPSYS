@@ -100,8 +100,9 @@ impl FrameAllocator {
 
     pub unsafe fn allocate(&mut self) -> usize {
         if self.last == null_mut() {
-            self.lowest -= PAGE_SIZE * 2;
-            let result = self.lowest + PAGE_SIZE;
+            self.lowest -= PAGE_SIZE * 4;
+            let result = self.lowest + 3 * PAGE_SIZE;
+            KERNEL_SATP.new_smap(result - PAGE_SIZE, PTEFlag::RW);
             KERNEL_SATP.new_smap(result, PTEFlag::RW);
             return result;
         } else {
@@ -112,6 +113,7 @@ impl FrameAllocator {
     }
 
     pub unsafe fn deallocate(&mut self, stack_top : usize) {
+        warning!("Deallocated a frame at {:#x}", stack_top);
         let stack = stack_top - PAGE_SIZE;
         let address = stack as *mut usize;
         *address = self.last as usize;
