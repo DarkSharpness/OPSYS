@@ -95,6 +95,10 @@ impl Node {
 
     pub fn wait(&mut self, handle: IPCHandle) {
         assert!(!self.is_dead());
+        if self.child.len() == 0 {
+            sys_respond(Argument::Register(-1 as _, 0), handle);
+            return;
+        }
         for i in 0..self.child.len() {
             let child = self.get_child(i);
             if child.is_dead() {
