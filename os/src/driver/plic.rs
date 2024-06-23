@@ -14,8 +14,8 @@ enum IRQ {
     VIRTIO  = 1,
 }
 
-const fn supported_irq() -> [IRQ; 2] {
-    return [IRQ::UART0, IRQ::VIRTIO];
+const fn supported_irq() -> [IRQ; 1] {
+    return [IRQ::UART0];
 }
 
 const fn supported_mode() -> [Mode; 2] {
