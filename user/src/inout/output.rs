@@ -47,12 +47,24 @@ impl StdBuf {
             self.flush_write(bytes);
         }
     }
+
+    fn exit(&mut self) {
+        if self.is_good() && self.as_slice().len() > 0 {
+            self.write_buf();
+        }
+    }
 }
+
+
 
 #[allow(static_mut_refs)]
 fn get_stdout() -> &'static mut StdBuf {
     static mut STDOUT_STREAM: StdBuf = StdBuf::new();
     unsafe { &mut STDOUT_STREAM }
+}
+
+pub fn exit_stdout() {
+    get_stdout().exit();
 }
 
 #[allow(unused)]

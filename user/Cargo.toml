@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 sys = { path = "../sys" }
+virtio-drivers = { git = "https://github.com/rcore-os/virtio-drivers", rev = "4ee80e5" }
 
 [profile.release]
 debug = true

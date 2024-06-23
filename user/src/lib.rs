@@ -8,6 +8,8 @@ pub mod inout;
 pub use syscall::*;
 pub use memory::*;
 
+use inout::exit_stdout;
+
 #[panic_handler]
 fn panic_handler(info: &core::panic::PanicInfo) -> ! {
     if let Some(location) = info.location() {
@@ -23,4 +25,8 @@ extern "C" { fn main() -> i32; }
 
 #[no_mangle]
 extern "C"
-fn _start() { unsafe { sys_exit(main()); } }
+fn _start() -> ! {
+    let result = unsafe { main() };
+    exit_stdout();
+    unsafe { sys_exit(result) };
+}
