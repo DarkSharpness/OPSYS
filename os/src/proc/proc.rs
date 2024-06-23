@@ -1,6 +1,7 @@
 extern crate alloc;
 
 use crate::alloc::PageAddress;
+use crate::proc::current_cpu;
 use crate::service::Argument;
 use crate::trap::TrapFrame;
 use super::memory::MemoryArea;
@@ -17,11 +18,12 @@ pub enum ProcessStatus {
 pub struct Process {
     pid         : PidType,          // process id
     status      : ProcessStatus,    // process status
-    isalive     : bool,             // is the process alive
     memory      : MemoryArea,       // memory area
     trap_frame  : * mut TrapFrame,  // trap frame
     context     : Context,          // current context
     response    : Option<Argument>, // response from service
+    priority    : u16,              // priority
+    timing      : usize,            // timing
 }
 
 impl Process {
@@ -37,9 +39,10 @@ impl Process {
         return Process {
             status  : ProcessStatus::RUNNABLE,
             pid     : PidType::allocate(),
-            isalive : true,
             context : Context::new_with(kernel_stack),
             response : None,
+            priority : 1,
+            timing   : 0,
             memory, trap_frame
         };
     }
@@ -55,7 +58,6 @@ impl Process {
         self.trap_frame = trap_frame;
         self.context    = Context::new_with(kernel_stack);
         self.response   = None;
-        self.isalive    = true;
         assert!(self.status == ProcessStatus::RUNNING);
     }
 
@@ -72,15 +74,15 @@ impl Process {
         return self.pid.clone();
     }
 
-    pub fn get_status(&self) -> ProcessStatus {
+    pub(super) fn get_status(&self) -> ProcessStatus {
         return self.status.clone();
     }
 
-    pub fn has_status(&self, status : ProcessStatus) -> bool {
+    pub(super) fn has_status(&self, status : ProcessStatus) -> bool {
         return self.status == status;
     }
 
-    pub fn set_status(&mut self, status : ProcessStatus) {
+    pub(super) fn set_status(&mut self, status : ProcessStatus) {
         self.status = status;
     }
 
@@ -96,12 +98,14 @@ impl Process {
     pub fn sleep_as(&mut self, status : ProcessStatus) {
         assert_eq!(self.status, ProcessStatus::RUNNING, "Invalid to sleep!");
         self.status = status;
+        current_cpu().get_manager().remove_runnable(self);
     }
 
     /** Wake up from given status. */
     pub fn wake_up_from(&mut self, status : ProcessStatus) {
         assert_eq!(self.status, status, "Invalid to wake up!");
         self.status = ProcessStatus::RUNNABLE;
+        current_cpu().get_manager().insert_runnable(self);
     }
 
     pub fn set_response(&mut self, response : Argument) {
@@ -113,14 +117,6 @@ impl Process {
         return self.response.take();
     }
 
-    pub fn is_alive(&self) -> bool {
-        return self.isalive;
-    }
-
-    pub fn set_dead(&mut self) {
-        self.isalive = false;
-    }
-
     pub unsafe fn destroy(&mut self) {
         PidType::unregister(self);
 
@@ -128,5 +124,25 @@ impl Process {
         self.get_trap_frame().free();
 
         let _ = *self; // Drop the process.
+    }
+
+    pub fn set_priority(&mut self, priority : u16) {
+        self.priority = priority;
+    }
+
+    pub fn get_priority(&self) -> usize {
+        return self.priority as usize;
+    }
+
+    pub fn set_timing(&mut self, timing : usize) {
+        self.timing = timing;
+    }
+
+    pub fn get_timing(&self) -> usize {
+        return self.timing;
+    }
+
+    pub const fn max_priority() -> usize {
+        return core::u16::MAX as usize;
     }
 }

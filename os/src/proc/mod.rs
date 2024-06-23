@@ -5,15 +5,16 @@ mod proc;
 mod test;
 mod memory;
 mod context;
+mod manager;
 mod schedule;
 
 pub use cpu::*;
 pub use proc::{Process, ProcessStatus};
 pub use pid::PidType;
-pub use schedule::run_process;
+pub use manager::run_process;
 
 use context::Context;
-use schedule::ProcessManager;
+use manager::ProcessManager;
 
 use crate::alloc::{PTEFlag, KERNEL_SATP, PAGE_SIZE};
 
