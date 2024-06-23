@@ -15,10 +15,25 @@ unsafe fn main() -> i32 {
     let mut string = String::new();
     put_prefix();
     while read_line(&mut string) {
-        if string.is_empty() {
+        let mut bytes = string.as_bytes();
+        while !bytes.is_empty() && bytes[0].is_ascii_whitespace() {
+            bytes = &bytes[1..];
+        }
+        while !bytes.is_empty() && bytes.last().unwrap().is_ascii_whitespace() {
+            bytes = &bytes[1..];
+        }
+
+        if bytes.is_empty() {
             put_prefix();
             continue;
         }
+
+        if bytes == b"exit" {
+            println!("-- Shell process exited --");
+            println!("-- Goodbye! --");
+            return 0;
+        }
+
         match sys_fork() {
             ForkResult::Error => {},
             ForkResult::Parent(pid) => {
@@ -32,7 +47,6 @@ unsafe fn main() -> i32 {
                 }
             },
             ForkResult::Child => {
-                let bytes = string.as_bytes();
                 sys_exec(&bytes, core::ptr::null());
                 panic!("-- No such program {} --", string)
             }
