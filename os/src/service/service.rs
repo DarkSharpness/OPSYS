@@ -34,6 +34,7 @@ impl Service {
     }
 
     pub unsafe fn wait_for_request(&mut self, process : &mut Process) -> &mut Request {
+        core::hint::black_box(&self.servant);
         self.set_servant(process);
 
         while self.waiting.is_empty() {
