@@ -23,8 +23,12 @@ pub struct AcceptPacket {
     result  : isize,
 }
 
-pub fn sys_request(args : [usize; 3], port : usize, kind : usize) -> isize {
+pub fn sys_request(args : Argument, port : usize, kind : usize) -> isize {
     let mut ret : isize;
+    let args = match args {
+        Argument::Register(a0, a1) => [a0, a1, ARGS_REGISTER],
+        Argument::Buffered(a0, a1) => [a0 as usize, a1, ARGS_BUFFERED],
+    };
     unsafe {
         core::arch::asm!(
             "ecall",
@@ -113,4 +117,6 @@ impl AcceptPacket {
 impl IPCHandle {
     /** Get the process id of the process who have requested. */
     pub unsafe fn get_pid(&self) -> PidType { return PidType::new(handle_to_pid(self.0)); }
+    /** Respond by a handle */
+    pub fn respond(self, args : Argument) -> isize { return sys_respond(args, self); }
 }

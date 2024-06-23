@@ -29,6 +29,17 @@ pub const PM_EXEC : usize = 2;
 pub const PM_WAIT : usize = 3;
 pub const PM_DUMP : usize = 9;
 
+pub const PM_MUTEX_CREATE   : usize = 10;
+pub const PM_MUTEX_DESTROY  : usize = 11;
+pub const PM_MUTEX_LOCK     : usize = 12;
+pub const PM_MUTEX_UNLOCK   : usize = 13;
+
+pub const PM_COND_CREATE    : usize = 14;
+pub const PM_COND_DESTROY   : usize = 15;
+pub const PM_COND_WAIT      : usize = 16;
+pub const PM_COND_SIGNAL    : usize = 17;
+pub const PM_COND_BROADCAST : usize = 18;
+
 const MAGIC : usize = 1919;
 
 pub unsafe fn pid_to_handle(x : usize) -> usize { x + MAGIC }

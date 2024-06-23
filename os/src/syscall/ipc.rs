@@ -7,7 +7,27 @@ impl CPU {
      * This process will continue to run after the request is processed.
      */
     pub unsafe fn sys_request(&mut self) {
-        todo!();
+        let process     = &mut *self.get_process();
+        let trap_frame  = process.get_trap_frame();
+        let port        = trap_frame.a6;
+        let kind        = trap_frame.a4;
+        let args        = Argument::new([trap_frame.a0, trap_frame.a1, trap_frame.a2], process);
+        process.service_request(args, kind, port);
+        match process.get_response() {
+            Some(response) => {
+                match response {
+                    Argument::Register(x, _) => {
+                        process.get_trap_frame().a0 = x;
+                    }
+                    _ => {
+                        todo!();
+                    }
+                }
+            },
+            None => {
+                // Do nothing
+            }
+        }
     }
 
     /**
